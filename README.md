@@ -60,7 +60,7 @@ Proje, aşağıdaki aşamalar doğrultusunda geliştirilmektedir.
 | Ekip Üyesi                | Sorumluluk                                                                                                                                   |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Mehmet Han Güven**      | Proje mimarisi, çekirdek sistemler ve oynanış programlama. Projenin genel teknik yapısı ve temel sistemlerinin geliştirilmesinden sorumludur |
-| **Muhammed Emin Sarugül** | Yapay zekâ ve LLM çalışmaları. Yapay zekâ tabanlı sistemlerin geliştirilmesine ve yerel dil modeli entegrasyonuna katkı sağlamaktadır.       |
+| **Muhammed Emin Sarıgül** | Yapay zekâ ve LLM çalışmaları. Yapay zekâ tabanlı sistemlerin geliştirilmesine ve yerel dil modeli entegrasyonuna katkı sağlamaktadır.       |
 
 Her iki ekip üyesi de projenin geliştirme sürecine kendi sorumluluk alanları ve katkıları doğrultusunda dahil olmaktadır.
 
