@@ -6,7 +6,7 @@ public class CompanionAgent : MonoBehaviour
 
     private void Start()
     {
-        
+        ChangeState(new IdleState());
     }
 
     private void Update()
