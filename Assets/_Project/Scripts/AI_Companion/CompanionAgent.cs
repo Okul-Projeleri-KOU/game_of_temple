@@ -9,13 +9,19 @@ public class CompanionAgent : MonoBehaviour
         ChangeState(new IdleState());
     }
 
-    private void Update()
+   private void Update()
+{
+    if (currentState != null)
     {
-        if (currentState != null)
-        {
-            currentState.Update();
-        }
+        currentState.Update();
     }
+
+    
+    if (Input.GetKeyDown(KeyCode.Space))
+    {
+        ChangeState(new ThinkingState());
+    }
+}
 
     public void ChangeState(BaseAgentState newState)
     {
