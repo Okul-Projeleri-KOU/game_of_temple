@@ -1,6 +1,6 @@
 public abstract class BaseAgentState
 {
-    public abstract void Enter();
-    public abstract void Update();
-    public abstract void Exit();
+    public abstract void EnterState(CompanionAgent agent);
+    public abstract void UpdateState(CompanionAgent agent);
+    public abstract void ExitState(CompanionAgent agent);
 }

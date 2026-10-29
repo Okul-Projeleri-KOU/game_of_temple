@@ -3,28 +3,37 @@ using UnityEngine;
 public class RaycastSensorController : MonoBehaviour
 {
     [Header("Sensör Ayarları")]
-    public float sensorRange = 5f; 
-    public LayerMask obstacleLayer; 
+    public float isinUzunlugu = 3f;
+    public float yanIsinAcisi = 35f; 
 
-    
     public bool IsObstacleAhead()
     {
-        RaycastHit hit;
+        Vector3 merkez = transform.position;
+        Vector3 ileri = transform.forward;
+        Vector3 sagCapraz = Quaternion.Euler(0, yanIsinAcisi, 0) * ileri;
+        Vector3 solCapraz = Quaternion.Euler(0, -yanIsinAcisi, 0) * ileri;
+
         
-        if (Physics.Raycast(transform.position, transform.forward, out hit, sensorRange, obstacleLayer))
-        {
-            Debug.Log($"Sensör Uyarısı: {hit.distance:F1} metre ileride '{hit.collider.name}' tespit edildi!");
-            return true;
-        }
-        return false;
-    }
-    
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + transform.forward * sensorRange);
+        bool onDolu = Physics.Raycast(merkez, ileri, isinUzunlugu);
+        bool sagDolu = Physics.Raycast(merkez, sagCapraz, isinUzunlugu);
+        bool solDolu = Physics.Raycast(merkez, solCapraz, isinUzunlugu);
+
+        return onDolu || sagDolu || solDolu;
     }
 
-   
     
+    private void OnDrawGizmos()
+    {
+        Vector3 merkez = transform.position;
+        Vector3 ileri = transform.forward;
+        Vector3 sagCapraz = Quaternion.Euler(0, yanIsinAcisi, 0) * ileri;
+        Vector3 solCapraz = Quaternion.Euler(0, -yanIsinAcisi, 0) * ileri;
+
+        Gizmos.color = Color.red;
+
+        
+        Gizmos.DrawRay(merkez, ileri * isinUzunlugu);
+        Gizmos.DrawRay(merkez, sagCapraz * isinUzunlugu);
+        Gizmos.DrawRay(merkez, solCapraz * isinUzunlugu);
+    }
 }
