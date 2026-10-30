@@ -61,17 +61,17 @@ namespace Cainos.PixelArtTopDown_Basic
         /// <summary>
         /// Doğu terasına eklenen tüm dikenli duvarların (engeller_0, engeller_2, engeller_2 (1), engeller_4 vb.)
         /// mevcut (X, Y) konumlarını koruyarak:
-        /// - Physics Layer'larını "Layer 1" yapar (karakterle çarpışabilmeleri için),
+        /// - Physics Layer'larını "Default" (0) yapar (Layer 1, Layer 2 ve Layer 3'teki karakterle her zaman çarpışabilmeleri için),
         /// - Eksik BoxCollider2D bileşenlerini ekler ve Y=180 rotasyonunu 2D uyumlu flipX'e çevirir,
         /// - Sorting Layer'larını "Layer 2" ve Order in Layer değerlerini koruyarak uçurum duvarlarının altında kalmalarını önler,
-        /// - Muhafızın (muhafız - normal_0) konumunu sabitler.
+        /// - Muhafızın (muhafız - normal_0) konumunu ve katı BoxCollider2D çarpışmasını sabitler.
         /// </summary>
         public static void SyncSpikyWallsPlacement()
         {
             bool modified = false;
             GameObject dirtyRef = null;
 
-            int layer1Physics = LayerMask.NameToLayer("Layer 1");
+            int defaultPhysicsLayer = 0; // Default layer: Layer 1, Layer 2 ve Layer 3 ile her zaman çarpışır
 
             SpriteRenderer[] allRenderers = Object.FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None);
             foreach (SpriteRenderer sr in allRenderers)
@@ -106,10 +106,10 @@ namespace Cainos.PixelArtTopDown_Basic
                     modified = true;
                 }
 
-                // 3. Physics Layer: Doğu terasındaki karakter "Layer 1"de olduğu için duvarları da "Layer 1" yap
-                if (layer1Physics != -1 && wallObj.layer != layer1Physics)
+                // 3. Physics Layer: Tüm katmanlarla (Layer 1/2/3) çarpışması için Default (0) yap
+                if (wallObj.layer != defaultPhysicsLayer)
                 {
-                    wallObj.layer = layer1Physics;
+                    wallObj.layer = defaultPhysicsLayer;
                     modified = true;
                 }
 
@@ -137,8 +137,9 @@ namespace Cainos.PixelArtTopDown_Basic
                     }
                     modified = true;
                 }
-                if (boxCol.isTrigger)
+                if (!boxCol.enabled || boxCol.isTrigger)
                 {
+                    boxCol.enabled = true;
                     boxCol.isTrigger = false;
                     modified = true;
                 }
@@ -151,6 +152,36 @@ namespace Cainos.PixelArtTopDown_Basic
                 if (Vector3.Distance(guardObj.transform.position, targetGuardPos) > 0.0001f)
                 {
                     guardObj.transform.position = targetGuardPos;
+                    dirtyRef = guardObj;
+                    modified = true;
+                }
+
+                // Muhafızın içinden geçilmesini önlemek için Physics Layer = Default (0) ve katı BoxCollider2D ayarla
+                if (guardObj.layer != defaultPhysicsLayer)
+                {
+                    guardObj.layer = defaultPhysicsLayer;
+                    dirtyRef = guardObj;
+                    modified = true;
+                }
+
+                BoxCollider2D guardCol = guardObj.GetComponent<BoxCollider2D>();
+                if (guardCol == null)
+                {
+                    guardCol = guardObj.AddComponent<BoxCollider2D>();
+                    dirtyRef = guardObj;
+                    modified = true;
+                }
+
+                Vector2 targetGuardSize = new Vector2(1.25f, 1.65f);
+                Vector2 targetGuardOffset = new Vector2(0f, -0.1f);
+                if (!guardCol.enabled || guardCol.isTrigger ||
+                    Vector2.Distance(guardCol.size, targetGuardSize) > 0.05f ||
+                    Vector2.Distance(guardCol.offset, targetGuardOffset) > 0.05f)
+                {
+                    guardCol.enabled = true;
+                    guardCol.isTrigger = false;
+                    guardCol.size = targetGuardSize;
+                    guardCol.offset = targetGuardOffset;
                     dirtyRef = guardObj;
                     modified = true;
                 }
