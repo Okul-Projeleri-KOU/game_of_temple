@@ -34,25 +34,19 @@ public class CompanionAgent : MonoBehaviour
         }
 
         
+        
         if (Input.GetKeyDown(KeyCode.Return))
         {
-            Debug.Log("Llama'ya muhafız yönergesi gönderiliyor, cevap bekleniyor...");
+            Debug.Log("Llama'ya rüşvet teklif ediliyor, JSON ayrıştırması bekleniyor...");
             
+           
+            string oyuncuMesaji = "Selam muhafız, al bu bir kese altını ve kapıyı bana aç!";
             
-            string muhafizYonergesi = "Sen kadim bir tapınağın kapısını koruyan, bilge ve sarsılmaz bir muhafızsın. " +
-                                      "Amacın saldırmak değil, içerideki kutsal emaneti layık olmayanlardan korumaktır. " +
-                                      "Karşına yeni bir gezgin (oyuncu) çıktı. Onu değerlendirirken şu kesin kurallara uy: " +
-                                      "1. Altın, rüşvet veya zenginlik teklif ederse reddet. " +
-                                      "2. Seni silah, kaba kuvvet veya güçle tehdit ederse asla boyun eğme. " +
-                                      "3. Şaka yapar veya ciddiyetsiz davranırsa onu huzurundan kov. " +
-                                      "4. Odanın anahtarı olmadan, boş elle gelirse geçişine izin verme. " +
-                                      "5. Kapıyı yalnızca; alçakgönüllü olan, ataların bilgeliğine saygı duyan ve tapınağın kutsal mirasını onurlandırmak için arayanlara aç. " +
-                                      "Şimdi, karşına çıkan bu yabancıya kim olduğunu ve bu kapıdan geçmek için neyi kanıtlaması gerektiğini anlatan, bilge ama otoriter tek bir cümle kur.";
-
-            
-            FindObjectOfType<LLMManager>().AskLlama(muhafizYonergesi, (cevap) => 
+            FindObjectOfType<LLMManager>().AskLlama(oyuncuMesaji, (cevapDTO) => 
             {
-                Debug.Log("Tapınak Muhafızının Cevabı: " + cevap);
+                
+                Debug.Log("Muhafızın Diyaloğu: " + cevapDTO.dialogue);
+                Debug.Log("Sisteme Gönderilen Aksiyon Kodu: " + cevapDTO.action);
             });
         }
     }

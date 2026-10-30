@@ -1,7 +1,8 @@
-[System.Serializable]
+using System;
+
+[Serializable]
 public class NPCResponseDTO
 {
-    public string npc_reply;
-    public string mood;
-    public string door_action;
+    public string dialogue; 
+    public string action;   
 }
