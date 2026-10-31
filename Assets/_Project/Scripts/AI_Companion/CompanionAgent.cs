@@ -33,22 +33,6 @@ public class CompanionAgent : MonoBehaviour
             ChangeState(new NavigateToKeyState());
         }
 
-        
-        
-        if (Input.GetKeyDown(KeyCode.Return))
-        {
-            Debug.Log("Llama'ya rüşvet teklif ediliyor, JSON ayrıştırması bekleniyor...");
-            
-           
-            string oyuncuMesaji = "Selam muhafız, al bu bir kese altını ve kapıyı bana aç!";
-            
-            FindObjectOfType<LLMManager>().AskLlama(oyuncuMesaji, (cevapDTO) => 
-            {
-                
-                Debug.Log("Muhafızın Diyaloğu: " + cevapDTO.dialogue);
-                Debug.Log("Sisteme Gönderilen Aksiyon Kodu: " + cevapDTO.action);
-            });
-        }
     }
 
     public void ChangeState(BaseAgentState newState)
