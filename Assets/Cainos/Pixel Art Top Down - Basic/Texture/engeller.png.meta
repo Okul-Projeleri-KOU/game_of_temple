@@ -1,0 +1,509 @@
+fileFormatVersion: 2
+guid: 01e2fa628d41dcc458dd912d556a5746
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 656850988312670541
+    second: engeller_0
+  - first:
+      213: 3429576777131513762
+    second: engeller_1
+  - first:
+      213: -6508250651516072323
+    second: engeller_2
+  - first:
+      213: 4534121765183879879
+    second: engeller_3
+  - first:
+      213: -6032978234566814914
+    second: engeller_4
+  - first:
+      213: 7557098840211995689
+    second: engeller_5
+  - first:
+      213: 5144111045404412213
+    second: engeller_6
+  - first:
+      213: -3677201586035654415
+    second: engeller_7
+  - first:
+      213: -4887082504062754067
+    second: engeller_8
+  - first:
+      213: 4774714040470156338
+    second: engeller_9
+  - first:
+      213: -1279988730759115877
+    second: engeller_10
+  - first:
+      213: -4083475031418388941
+    second: engeller_11
+  - first:
+      213: -6774692258350248528
+    second: engeller_12
+  - first:
+      213: 4686668912164933171
+    second: engeller_13
+  - first:
+      213: -5788799222405249364
+    second: engeller_14
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: engeller_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 1995
+        width: 605
+        height: 405
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d41bdb46e7a9d1900800000000000000
+      internalID: 656850988312670541
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_1
+      rect:
+        serializedVersion: 2
+        x: 725
+        y: 2007
+        width: 693
+        height: 393
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a75ada78ed489f20800000000000000
+      internalID: 3429576777131513762
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_2
+      rect:
+        serializedVersion: 2
+        x: 56
+        y: 1621
+        width: 565
+        height: 317
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d7e0e2fb38c0ea5a0800000000000000
+      internalID: -6508250651516072323
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_3
+      rect:
+        serializedVersion: 2
+        x: 717
+        y: 1639
+        width: 318
+        height: 190
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7caf62ef8bf6cee30800000000000000
+      internalID: 4534121765183879879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_4
+      rect:
+        serializedVersion: 2
+        x: 1135
+        y: 1644
+        width: 214
+        height: 279
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e335bfe724e864ca0800000000000000
+      internalID: -6032978234566814914
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_5
+      rect:
+        serializedVersion: 2
+        x: 59
+        y: 1273
+        width: 453
+        height: 300
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 92c3a5f1b5530e860800000000000000
+      internalID: 7557098840211995689
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_6
+      rect:
+        serializedVersion: 2
+        x: 764
+        y: 1220
+        width: 610
+        height: 283
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5394e7abdbd836740800000000000000
+      internalID: 5144111045404412213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_7
+      rect:
+        serializedVersion: 2
+        x: 77
+        y: 785
+        width: 546
+        height: 352
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1f087d0e3a4f7fcc0800000000000000
+      internalID: -3677201586035654415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_8
+      rect:
+        serializedVersion: 2
+        x: 835
+        y: 790
+        width: 542
+        height: 375
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: de2205dfa589d2cb0800000000000000
+      internalID: -4887082504062754067
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_9
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 470
+        width: 268
+        height: 257
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2343b4e4f11334240800000000000000
+      internalID: 4774714040470156338
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_10
+      rect:
+        serializedVersion: 2
+        x: 450
+        y: 473
+        width: 324
+        height: 234
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b9b8992f7019c3ee0800000000000000
+      internalID: -1279988730759115877
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_11
+      rect:
+        serializedVersion: 2
+        x: 850
+        y: 480
+        width: 249
+        height: 171
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 33e312718159457c0800000000000000
+      internalID: -4083475031418388941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_12
+      rect:
+        serializedVersion: 2
+        x: 1206
+        y: 492
+        width: 139
+        height: 251
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0bdc17ee8457bf1a0800000000000000
+      internalID: -6774692258350248528
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_13
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 645
+        height: 402
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 33e05796b846a0140800000000000000
+      internalID: 4686668912164933171
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: engeller_14
+      rect:
+        serializedVersion: 2
+        x: 857
+        y: 0
+        width: 561
+        height: 402
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ca64a7017cd0aafa0800000000000000
+      internalID: -5788799222405249364
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      engeller_0: 656850988312670541
+      engeller_1: 3429576777131513762
+      engeller_10: -1279988730759115877
+      engeller_11: -4083475031418388941
+      engeller_12: -6774692258350248528
+      engeller_13: 4686668912164933171
+      engeller_14: -5788799222405249364
+      engeller_2: -6508250651516072323
+      engeller_3: 4534121765183879879
+      engeller_4: -6032978234566814914
+      engeller_5: 7557098840211995689
+      engeller_6: 5144111045404412213
+      engeller_7: -3677201586035654415
+      engeller_8: -4887082504062754067
+      engeller_9: 4774714040470156338
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
