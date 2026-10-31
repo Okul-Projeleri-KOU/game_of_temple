@@ -1,0 +1,667 @@
+fileFormatVersion: 2
+guid: 8cc183e459994d54b975ec4a21be1be3
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3410010073414131991
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_0
+  - first:
+      213: 3407267870755558346
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_1
+  - first:
+      213: 4804443660086217649
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_2
+  - first:
+      213: 862724569473741700
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_3
+  - first:
+      213: 1991228859085049416
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_4
+  - first:
+      213: 1639495878748262553
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_5
+  - first:
+      213: -4086360388799672415
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_6
+  - first:
+      213: 1304390973431724799
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_7
+  - first:
+      213: -4671880197687075966
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_8
+  - first:
+      213: 7616297179936077792
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_9
+  - first:
+      213: -5929984578339791393
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_10
+  - first:
+      213: -2435592001805811067
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_11
+  - first:
+      213: -4445018269487305815
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_12
+  - first:
+      213: -1767772282422330185
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_13
+  - first:
+      213: 7274923683839771903
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_14
+  - first:
+      213: -5368836048186973578
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_15
+  - first:
+      213: 6093079196369819207
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_16
+  - first:
+      213: 8200055496346029716
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_17
+  - first:
+      213: -2391297344111694878
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_18
+  - first:
+      213: -1070447415964193677
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_19
+  - first:
+      213: 857032923905139005
+    second: Gemini_Generated_Image_undh67undh67undh-removebg-preview_20
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationMethod: 0
+  spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_0"
+      rect:
+        serializedVersion: 2
+        x: 3
+        y: 290
+        width: 78
+        height: 43
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 46f59d8011ab35e41944fda7e596ca35
+      internalID: -2057185714
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_1"
+      rect:
+        serializedVersion: 2
+        x: 91
+        y: 290
+        width: 68
+        height: 43
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4158120b36bb47f4f94748ddb94c8bce
+      internalID: 1590771023
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_2"
+      rect:
+        serializedVersion: 2
+        x: 173
+        y: 290
+        width: 73
+        height: 59
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2c2e99faf6220445ad7c0650b0ffd1b
+      internalID: 1385082810
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_3"
+      rect:
+        serializedVersion: 2
+        x: 253
+        y: 290
+        width: 79
+        height: 43
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0456cc5a5922a16418da7f50696a2dad
+      internalID: -1864436474
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_4"
+      rect:
+        serializedVersion: 2
+        x: 337
+        y: 290
+        width: 78
+        height: 45
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c22bc8b2f9dcad3409ad751a7598345a
+      internalID: -1159454020
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_5"
+      rect:
+        serializedVersion: 2
+        x: 422
+        y: 290
+        width: 76
+        height: 44
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 54f17160bbf8f994c888511fd791937e
+      internalID: -977189989
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_6"
+      rect:
+        serializedVersion: 2
+        x: 504
+        y: 287
+        width: 78
+        height: 50
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7776a5034b880994fb462eb9db3281db
+      internalID: -227465951
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_7"
+      rect:
+        serializedVersion: 2
+        x: 587
+        y: 288
+        width: 78
+        height: 47
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 12f4e6e62b749b24cad8d226c696a6ca
+      internalID: -240849185
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_8"
+      rect:
+        serializedVersion: 2
+        x: 1
+        y: 170
+        width: 83
+        height: 54
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f961ea55e685b96498f29a7008606e10
+      internalID: 999003920
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_9"
+      rect:
+        serializedVersion: 2
+        x: 85
+        y: 171
+        width: 249
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2dd1b01fb20497468843a50deb975ef
+      internalID: -292460555
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_10"
+      rect:
+        serializedVersion: 2
+        x: 336
+        y: 170
+        width: 165
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 984f6ef59708de84ba697d4334e0dc80
+      internalID: 1314402056
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_11"
+      rect:
+        serializedVersion: 2
+        x: 502
+        y: 171
+        width: 82
+        height: 53
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 25c00e6b385beac4a9aeacb95e420eb2
+      internalID: 10338086
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_12"
+      rect:
+        serializedVersion: 2
+        x: 585
+        y: 170
+        width: 81
+        height: 55
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: be1dc50862447ed41a17479a20842946
+      internalID: 1725553798
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_13"
+      rect:
+        serializedVersion: 2
+        x: 7
+        y: 81
+        width: 58
+        height: 30
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 760e649cd5b3ecf4a8a614e1769819f0
+      internalID: -397981517
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_14"
+      rect:
+        serializedVersion: 2
+        x: 92
+        y: 76
+        width: 57
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c7b05924986068c44999350f725d272e
+      internalID: -1326790986
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_15"
+      rect:
+        serializedVersion: 2
+        x: 185
+        y: 77
+        width: 46
+        height: 56
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e218289019c7cb943b4092afdb6ffa07
+      internalID: 935125173
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_16"
+      rect:
+        serializedVersion: 2
+        x: 263
+        y: 80
+        width: 55
+        height: 33
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4606d2c111360294ebe8c0f1cb066169
+      internalID: 1568153935
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_17"
+      rect:
+        serializedVersion: 2
+        x: 345
+        y: 77
+        width: 54
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1af344a54d942cf46881cf62a3997343
+      internalID: -541543555
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_18"
+      rect:
+        serializedVersion: 2
+        x: 429
+        y: 74
+        width: 52
+        height: 51
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dc3c4a8469dbff345a829b77da1bb256
+      internalID: -468220941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_19"
+      rect:
+        serializedVersion: 2
+        x: 519
+        y: 74
+        width: 47
+        height: 58
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: baa58ce0468bf75408e65a91ffc498dc
+      internalID: -471671044
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "Bayku\u015F Yolda\u015F Temizlenmi\u015F_20"
+      rect:
+        serializedVersion: 2
+        x: 595
+        y: 80
+        width: 55
+        height: 33
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 18ad43f2a4bcb5b4cafe192617c3d460
+      internalID: -154152006
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 19285beab95cd0a449850fb050ce6e63
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":8.0,"y":3.0},"gridSpriteSize":{"x":344.0,"y":512.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_0": -2057185714
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_1": 1590771023
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_10": 1314402056
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_11": 10338086
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_12": 1725553798
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_13": -397981517
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_14": -1326790986
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_15": 935125173
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_16": 1568153935
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_17": -541543555
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_18": -468220941
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_19": -471671044
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_2": 1385082810
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_20": -154152006
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_3": -1864436474
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_4": -1159454020
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_5": -977189989
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_6": -227465951
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_7": -240849185
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_8": 999003920
+      "Bayku\u015F Yolda\u015F Temizlenmi\u015F_9": -292460555
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
