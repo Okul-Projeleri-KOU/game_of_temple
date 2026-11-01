@@ -17,17 +17,20 @@ public class GameManager : MonoBehaviour
 
     public event Action<GameState> OnGameStateChanged;
 
-    [Header("Spawn Settings (Aşama 1 - Bölge 1)")]
-    [Tooltip("Oyuncunun doğacağı başlangıç noktası (SpawnPoint).")]
+    [Header("Oyun Durumu")]
+    [SerializeField] private bool hasKey;
+    [SerializeField] private bool hasCompanion;
+
+    public bool HasKey => hasKey;
+    public bool HasCompanion => hasCompanion;
+
+    public event Action<bool> OnKeyStateChanged;
+    public event Action<bool> OnCompanionStateChanged;
+
+    [Header("Başlangıç Ayarları")]
     [SerializeField] private Transform spawnPoint;
-
-    [Tooltip("Oyuncu Transform referansı (Boş bırakılırsa 'Player' tag'i ile otomatik bulunur).")]
     [SerializeField] private Transform playerTransform;
-
-    [Tooltip("Başlangıç bölgesinin Cainos fizik katmanı (Sol üst teras için 'Layer 2').")]
     [SerializeField] private string spawnLayerName = "Layer 2";
-
-    [Tooltip("Başlangıç bölgesinin Cainos Sorting Layer adı (Sol üst teras için 'Layer 2').")]
     [SerializeField] private string spawnSortingLayerName = "Layer 2";
 
     private void Awake()
@@ -53,14 +56,9 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // CameraFollow.Start() çalışmadan önce oyuncuyu ve kamerayı başlangıç noktasına taşı
         RespawnPlayer();
     }
 
-    /// <summary>
-    /// Oyuncuyu (ve kamerayı) başlangıç noktasına (SpawnPoint) ışınlar ve katmanlarını günceller.
-    /// Hem oyun başında hem de Faz 3'te Muhafız 'KILL_PLAYER' kararı verdiğinde çağrılır.
-    /// </summary>
     public void RespawnPlayer()
     {
         if (spawnPoint == null)
@@ -72,7 +70,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[GameManager] SpawnPoint atanmamış! Lütfen Inspector'dan SpawnPoint Transform'unu atayın.");
+                Debug.LogWarning("SpawnPoint atanmamış.");
                 return;
             }
         }
@@ -86,7 +84,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[GameManager] Sahne içinde 'Player' tag'ine sahip karakter bulunamadı!");
+                Debug.LogWarning("Player bulunamadı.");
                 return;
             }
         }
@@ -94,7 +92,6 @@ public class GameManager : MonoBehaviour
         Vector3 targetPosition = new Vector3(spawnPoint.position.x, spawnPoint.position.y, playerTransform.position.z);
         Vector3 delta = targetPosition - playerTransform.position;
 
-        // Oyuncuyu ışınla
         playerTransform.position = targetPosition;
 
         Rigidbody2D rb = playerTransform.GetComponent<Rigidbody2D>();
@@ -104,13 +101,11 @@ public class GameManager : MonoBehaviour
             rb.position = new Vector2(targetPosition.x, targetPosition.y);
         }
 
-        // Kamerayı aynı fark kadar kaydır ki CameraFollow.Start() yanlış offset hesaplamasın
         if (Camera.main != null)
         {
             Camera.main.transform.position += new Vector3(delta.x, delta.y, 0f);
         }
 
-        // Cainos çok katmanlı harita mimarisine uygun olarak fizik ve Sorting Layer değerlerini güncelle
         ApplySpawnLayer(playerTransform.gameObject, targetPosition);
     }
 
@@ -139,10 +134,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// SpawnPoint hangi katmanın zemin karosu (Layer 3 / Layer 2 / Layer 1) üzerindeyse onu otomatik tespit eder.
-    /// Böylece Inspector'da Layer 1 kalsa bile karakter üst katmanda doğduğunda zeminin altında görünmez olmaz.
-    /// </summary>
     private string DetectGroundLayerAtPosition(Vector3 worldPos)
     {
         string[] layerCandidates = { "Layer 3", "Layer 2", "Layer 1" };
@@ -172,6 +163,24 @@ public class GameManager : MonoBehaviour
 
         CurrentState = newState;
         OnGameStateChanged?.Invoke(CurrentState);
+    }
+
+    public void SetHasKey(bool value)
+    {
+        if (hasKey == value)
+            return;
+
+        hasKey = value;
+        OnKeyStateChanged?.Invoke(hasKey);
+    }
+
+    public void SetHasCompanion(bool value)
+    {
+        if (hasCompanion == value)
+            return;
+
+        hasCompanion = value;
+        OnCompanionStateChanged?.Invoke(hasCompanion);
     }
 
     private void OnDrawGizmos()

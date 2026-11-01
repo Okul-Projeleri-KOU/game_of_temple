@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
@@ -11,15 +11,12 @@ public class AncientTablet : MonoBehaviour, IInteractable
     [TextArea(2, 5)]
     [SerializeField] private string clueText = "Kadim Tablet İpucusu: Kapıyı açmak için önce Rün Sunağı'nı uyandırmalısın.";
 
-    [Tooltip("Mezarlık ve dikilitaş yazılarının içinde gösterileceği kitabe_0 görseli.")]
     [SerializeField] private Sprite kitabeSprite;
 
-    [Tooltip("Sadece heykel (Statue) için kullanılacak kitabe_forheykel_0 görseli.")]
     [SerializeField] private Sprite statueKitabeSprite;
 
     private static int lastSyncedFrame = -1;
 
-    // Ekranın ortasında açılan Kitabe (kitabe_0 & kitabe_forheykel_0) UI bileşenleri
     private static Canvas kitabeCanvas;
     private static CanvasGroup kitabeCanvasGroup;
     private static RectTransform kitabePanelRect;
@@ -76,9 +73,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         }
     }
 
-    /// <summary>
-    /// Oyuncu hareket ettiğinde açık olan kitabe okuma ekranını kapatır.
-    /// </summary>
     public static void HideAllReadingsOnMove()
     {
         if (isKitabeOpen && Time.unscaledTime - kitabeOpenedTime > 0.15f)
@@ -96,7 +90,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         Sprite loadedKitabeSprite = FindKitabeSprite();
         Sprite loadedStatueKitabeSprite = FindStatueKitabeSprite();
 
-        // Sahneye yanlışlıkla dünya nesnesi olarak sürüklenmiş kitabe görselleri varsa gizle
         string[] looseNames = { "kitabe_0", "kitabe_forheykel_0", "kitabe", "kitabe_forheykel", "kapi_kilitli_0", "kapi_kilitli" };
         foreach (string looseName in looseNames)
         {
@@ -140,7 +133,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
                 modified = true;
             }
 
-            // 1. Z derinliği kaymış olan nesneleri z=0 düzlemine çek
             Vector3 pos = obj.transform.position;
             if (Mathf.Abs(pos.z) > 0.001f)
             {
@@ -149,14 +141,12 @@ public class AncientTablet : MonoBehaviour, IInteractable
                 modified = true;
             }
 
-            // 2. Physics Layer = Default (0) yap
             if (obj.layer != 0)
             {
                 obj.layer = 0;
                 modified = true;
             }
 
-            // 3. Bulunduğu zemine göre Sorting Layer'ı doğrula
             string groundSortingLayer = DetectGroundLayerAtPosition(pos);
             SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
             if (sr != null && !string.IsNullOrEmpty(groundSortingLayer))
@@ -168,7 +158,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
                 }
             }
 
-            // 4. Boş kalmış metinleri tamamla
             string trimmed = tablet.clueText != null ? tablet.clueText.Trim() : string.Empty;
             if (string.IsNullOrEmpty(trimmed) || trimmed == "Q")
             {
@@ -183,13 +172,11 @@ public class AncientTablet : MonoBehaviour, IInteractable
                 }
             }
 
-            // 5. Katı Collider doğrula
             if (EnsureSolidColliderOnObject(obj))
             {
                 modified = true;
             }
 
-            // 6. InteractionIndicator ("E" simgesi) yoksa otomatik ekle
             if (EnsureInteractionIndicator(obj.transform, eSprite))
             {
                 modified = true;
@@ -315,9 +302,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         ShowKitabePopup();
     }
 
-    // =========================================================================
-    // EKRANIN ORTASINDA KİTABE (kitabe_0 / kitabe_forheykel_0) + ÇEVRESEL HAFİF SİYAH KONTÜR
-    // =========================================================================
 
     private void ShowKitabePopup()
     {
@@ -452,7 +436,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
 
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // Ana taşıyıcı panel
         GameObject panelObj = new GameObject("Kitabe_Panel");
         panelObj.transform.SetParent(canvasObj.transform, false);
 
@@ -468,7 +451,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         kitabeCanvasGroup.interactable = false;
         kitabeCanvasGroup.blocksRaycasts = false;
 
-        // 1. Tüm etrafını eşit saran hafif siyah dış hale (ön plana çıkaran yumuşak siyah çerçeve)
         GameObject outerAuraObj = new GameObject("AllAroundSoftBlackEdge");
         outerAuraObj.transform.SetParent(panelObj.transform, false);
         RectTransform outerRect = outerAuraObj.AddComponent<RectTransform>();
@@ -489,7 +471,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         softOuterOutline.effectColor = new Color(0f, 0f, 0f, 0.22f);
         softOuterOutline.effectDistance = new Vector2(3f, 3f);
 
-        // 2. Asıl Kitabe Görseli + dört kenarında eşit hafif siyah Outline
         GameObject mainImgObj = new GameObject("KitabeMainGraphic");
         mainImgObj.transform.SetParent(panelObj.transform, false);
         RectTransform mainImgRect = mainImgObj.AddComponent<RectTransform>();
@@ -514,7 +495,6 @@ public class AncientTablet : MonoBehaviour, IInteractable
         allAroundEdge.effectColor = new Color(0f, 0f, 0f, 0.40f);
         allAroundEdge.effectDistance = new Vector2(2.5f, 2.5f);
 
-        // 3. Kitabenin ortasındaki koyu taş oyuk alan
         GameObject textContainerObj = new GameObject("KitabeInnerTextArea");
         textContainerObj.transform.SetParent(mainImgObj.transform, false);
 

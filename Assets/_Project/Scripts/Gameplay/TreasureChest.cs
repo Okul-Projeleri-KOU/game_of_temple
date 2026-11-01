@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class TreasureChest : MonoBehaviour, IInteractable
 {
@@ -30,6 +30,19 @@ public class TreasureChest : MonoBehaviour, IInteractable
 
             isOpen = true;
             HideInteractionIndicator();
+
+            if (GameManager.Instance != null)
+            {
+                if (transform.position.x < 0f)
+                {
+                    GameManager.Instance.SetHasCompanion(true);
+                }
+                else
+                {
+                    GameManager.Instance.SetHasKey(true);
+                }
+            }
+
             Debug.Log("Sandık açıldı");
         }
     }

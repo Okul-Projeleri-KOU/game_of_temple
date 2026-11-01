@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,7 +8,7 @@ public class RuneAltar : MonoBehaviour, IInteractable
     public event Action OnAltarActivated;
     public event Action OnAltarDeactivated;
 
-    [Header("Rün Görselleri (İsteğe Bağlı)")]
+    [Header("Rün Görselleri ")]
     [SerializeField] private List<SpriteRenderer> runes = new List<SpriteRenderer>();
     [SerializeField] private float glowSpeed = 3f;
 

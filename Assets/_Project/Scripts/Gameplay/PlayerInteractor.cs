@@ -4,7 +4,6 @@ public class PlayerInteractor : MonoBehaviour
 {
     private const string IndicatorChildName = "InteractionIndicator";
 
-    [Tooltip("Nesneye ne kadar yaklaşıldığında 'E' göstergesinin (InteractionIndicator) aktif olacağı mesafe.")]
     [SerializeField] private float interactionRadius = 0.85f;
 
     private Rigidbody2D rb;
@@ -35,7 +34,6 @@ public class PlayerInteractor : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
 
-        // Sahnedeki eski 1.5f değeri kalmışsa bir tık daha yaklaşınca aktif olması için 0.85f'e çek
         if (interactionRadius > 1.0f)
         {
             interactionRadius = 0.85f;
@@ -44,6 +42,15 @@ public class PlayerInteractor : MonoBehaviour
 
     private void Update()
     {
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsGuardChatOpen)
+        {
+            if (currentIndicator != null && currentIndicator.activeSelf)
+            {
+                currentIndicator.SetActive(false);
+            }
+            return;
+        }
+
         DetectInteractable();
 
         if (IsMoving())
@@ -63,7 +70,6 @@ public class PlayerInteractor : MonoBehaviour
 
     private void DetectInteractable()
     {
-        // Karakterin gövde merkezini baz alarak çevredeki etkileşimli nesneleri tara
         Vector2 playerCenter = (Vector2)transform.position + new Vector2(0f, 0.3f);
         Collider2D[] colliders = Physics2D.OverlapCircleAll(playerCenter, interactionRadius);
 
@@ -84,7 +90,6 @@ public class PlayerInteractor : MonoBehaviour
 
             if (interactable != null && interactable is MonoBehaviour mb)
             {
-                // Sandık zaten açılmışsa tekrar 'E' göstergesi çıkmasın
                 if (interactable is TreasureChest chest && chest.IsOpen)
                     continue;
 

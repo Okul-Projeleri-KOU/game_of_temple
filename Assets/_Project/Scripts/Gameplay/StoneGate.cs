@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,13 +8,13 @@ public class StoneGate : MonoBehaviour, IInteractable
     [Header("Mühür Bağlantısı")]
     [SerializeField] private RuneAltar runeAltar;
 
-    [Header("Görsel Ayarlar (Açık / Kapalı Tasarım)")]
+    [Header("Görsel Ayarlar ")]
     [SerializeField] private SpriteRenderer gateRenderer;
     [SerializeField] private Sprite closedSprite;
     [SerializeField] private Sprite openSprite;
     [SerializeField] private GameObject closedVisualObject;
 
-    [Header("Kilitli Kapı Uyarısı (kapi_kilitli_0)")]
+    [Header("Kilitli Kapı Uyarısı ")]
     [SerializeField] private Sprite lockedBannerSprite;
     [TextArea(2, 4)]
     [SerializeField] private string lockedMessage = "KAPI KİLİTLİ\nKadim mühür aktif değil!";
@@ -25,7 +25,6 @@ public class StoneGate : MonoBehaviour, IInteractable
     private Vector3 initialLocalPos;
     private Color initialGateColor = Color.white;
 
-    // Otomatik ekran uyarı efekti bileşenleri (kapi_kilitli_0)
     private static Canvas warningCanvas;
     private static CanvasGroup warningCanvasGroup;
     private static RectTransform warningBannerRect;
@@ -70,7 +69,6 @@ public class StoneGate : MonoBehaviour, IInteractable
     {
         boxCollider = GetComponent<BoxCollider2D>();
 
-        // Kapının her katmandaki (Layer 1/2/3) oyuncuyla çarpışması için Default (0) katmanına al
         gameObject.layer = 0;
         if (boxCollider != null)
         {
@@ -329,7 +327,6 @@ public class StoneGate : MonoBehaviour, IInteractable
 
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // kapi_kilitli_0 (2400 x 793) oranına uygun boyut: 780 x 258
         GameObject bannerObj = new GameObject("LockedWarningBanner_kapi_kilitli_0");
         bannerObj.transform.SetParent(canvasObj.transform, false);
 
@@ -344,7 +341,6 @@ public class StoneGate : MonoBehaviour, IInteractable
         warningCanvasGroup.blocksRaycasts = false;
         warningCanvasGroup.interactable = false;
 
-        // 1. Tüm etrafını eşit saran hafif siyah dış hale (ön plana çıkaran yumuşak siyah çerçeve)
         GameObject outerAuraObj = new GameObject("AllAroundSoftBlackEdge");
         outerAuraObj.transform.SetParent(bannerObj.transform, false);
         RectTransform outerRect = outerAuraObj.AddComponent<RectTransform>();
@@ -365,7 +361,6 @@ public class StoneGate : MonoBehaviour, IInteractable
         softOuterOutline.effectColor = new Color(0f, 0f, 0f, 0.22f);
         softOuterOutline.effectDistance = new Vector2(3f, 3f);
 
-        // 2. Asıl kapi_kilitli_0 görseli + dört kenarında eşit hafif siyah Outline
         GameObject mainImgObj = new GameObject("LockedGateMainGraphic");
         mainImgObj.transform.SetParent(bannerObj.transform, false);
         RectTransform mainImgRect = mainImgObj.AddComponent<RectTransform>();
@@ -390,8 +385,6 @@ public class StoneGate : MonoBehaviour, IInteractable
         allAroundEdge.effectColor = new Color(0f, 0f, 0f, 0.40f);
         allAroundEdge.effectDistance = new Vector2(2.5f, 2.5f);
 
-        // 3. kapi_kilitli_0 görselinin sağ tarafındaki koyu taş oyuk metin alanı (sol tarafta kilit simgesi var)
-        // X: 0.295 .. 0.885, Y: 0.28 .. 0.72
         GameObject textObj = new GameObject("WarningTextContainer");
         textObj.transform.SetParent(mainImgObj.transform, false);
         RectTransform textRect = textObj.AddComponent<RectTransform>();

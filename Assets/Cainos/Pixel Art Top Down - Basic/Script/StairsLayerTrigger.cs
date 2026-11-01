@@ -1,7 +1,10 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Tilemaps;
+using NavMeshPlus.Components;
+using NavMeshPlus.Extensions;
 
 namespace Cainos.PixelArtTopDown_Basic
 {
@@ -29,9 +32,10 @@ namespace Cainos.PixelArtTopDown_Basic
                 if (!Application.isPlaying)
                 {
                     EnsureSceneView2DMode();
-                    SyncEastStairsTilemapRegion();
-                    SyncSpikyWallsPlacement();
                 }
+                SyncEastStairsTilemapRegion();
+                SyncSpikyWallsPlacement();
+                SyncNavMesh2DSetup();
             };
         }
 
@@ -55,23 +59,427 @@ namespace Cainos.PixelArtTopDown_Basic
                 lastSyncedFrame = Time.frameCount;
                 SyncEastStairsTilemapRegion();
                 SyncSpikyWallsPlacement();
+                SyncNavMesh2DSetup();
             }
         }
 
-        /// <summary>
-        /// Doğu terasına eklenen tüm dikenli duvarların (engeller_0, engeller_2, engeller_2 (1), engeller_4 vb.)
-        /// mevcut (X, Y) konumlarını koruyarak:
-        /// - Physics Layer'larını "Default" (0) yapar (Layer 1, Layer 2 ve Layer 3'teki karakterle her zaman çarpışabilmeleri için),
-        /// - Eksik BoxCollider2D bileşenlerini ekler ve Y=180 rotasyonunu 2D uyumlu flipX'e çevirir,
-        /// - Sorting Layer'larını "Layer 2" ve Order in Layer değerlerini koruyarak uçurum duvarlarının altında kalmalarını önler,
-        /// - Muhafızın (muhafız - normal_0) konumunu ve katı BoxCollider2D çarpışmasını sabitler.
-        /// </summary>
+        public static void SyncNavMesh2DSetup()
+        {
+            GameObject navMeshObj = GameObject.Find("NavMesh2D");
+            if (navMeshObj == null)
+                return;
+
+            bool modified = false;
+
+#if UNITY_EDITOR
+            UnityEngine.Object[] navSettingsAssets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/NavMeshAreas.asset");
+            if (navSettingsAssets != null && navSettingsAssets.Length > 0 && navSettingsAssets[0] != null)
+            {
+                UnityEditor.SerializedObject navSettingsSO = new UnityEditor.SerializedObject(navSettingsAssets[0]);
+                UnityEditor.SerializedProperty settingsProp = navSettingsSO.FindProperty("m_Settings");
+                if (settingsProp != null && settingsProp.isArray && settingsProp.arraySize > 0)
+                {
+                    UnityEditor.SerializedProperty agent0 = settingsProp.GetArrayElementAtIndex(0);
+                    UnityEditor.SerializedProperty radiusProp = agent0.FindPropertyRelative("agentRadius");
+                    UnityEditor.SerializedProperty heightProp = agent0.FindPropertyRelative("agentHeight");
+                    UnityEditor.SerializedProperty minAreaProp = agent0.FindPropertyRelative("minRegionArea");
+                    if (radiusProp != null && Mathf.Abs(radiusProp.floatValue - 0.18f) > 0.01f)
+                    {
+                        radiusProp.floatValue = 0.18f;
+                        if (heightProp != null) heightProp.floatValue = 0.5f;
+                        if (minAreaProp != null) minAreaProp.floatValue = 0.05f;
+                        navSettingsSO.ApplyModifiedPropertiesWithoutUndo();
+                    }
+                }
+            }
+#endif
+
+            Quaternion targetRot = Quaternion.Euler(-90f, 0f, 0f);
+            if (Quaternion.Angle(navMeshObj.transform.rotation, targetRot) > 0.1f)
+            {
+                navMeshObj.transform.rotation = targetRot;
+                modified = true;
+            }
+
+            Component[] allComps = navMeshObj.GetComponents<Component>();
+            foreach (Component comp in allComps)
+            {
+                if (comp != null && comp.GetType().FullName == "Unity.AI.Navigation.NavMeshSurface")
+                {
+                    if (Application.isPlaying)
+                        Object.Destroy(comp);
+                    else
+                        Object.DestroyImmediate(comp);
+                    modified = true;
+                }
+            }
+
+            NavMeshSurface surface2D = navMeshObj.GetComponent<NavMeshSurface>();
+            if (surface2D == null)
+            {
+                surface2D = navMeshObj.AddComponent<NavMeshSurface>();
+                modified = true;
+            }
+
+            CollectSources2d collect2D = navMeshObj.GetComponent<CollectSources2d>();
+            if (collect2D != null && surface2D.NavMeshExtensions.Count == 0)
+            {
+                if (Application.isPlaying)
+                    Object.Destroy(collect2D);
+                else
+                    Object.DestroyImmediate(collect2D);
+                collect2D = null;
+            }
+            if (collect2D == null)
+            {
+                collect2D = navMeshObj.AddComponent<CollectSources2d>();
+                modified = true;
+            }
+
+            if (surface2D.collectObjects != CollectObjects.All ||
+                surface2D.useGeometry != NavMeshCollectGeometry.PhysicsColliders ||
+                !surface2D.overrideVoxelSize ||
+                Mathf.Abs(surface2D.voxelSize - 0.05f) > 0.005f ||
+                Mathf.Abs(surface2D.minRegionArea - 0.05f) > 0.01f ||
+                !surface2D.hideEditorLogs)
+            {
+                surface2D.collectObjects = CollectObjects.All;
+                surface2D.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+                surface2D.defaultArea = 0; // Walkable
+                surface2D.overrideVoxelSize = true;
+                surface2D.voxelSize = 0.05f;
+                surface2D.minRegionArea = 0.05f;
+                surface2D.hideEditorLogs = true;
+                modified = true;
+            }
+
+            string[] groundTilemaps = { "Layer 1 - Grass", "Layer 2 - Grass", "Layer 3 - Grass" };
+            foreach (string groundName in groundTilemaps)
+            {
+                GameObject groundObj = GameObject.Find(groundName);
+                if (groundObj != null)
+                {
+                    if (EnsureModifier2D(groundObj, true, 0, false))
+                        modified = true;
+                }
+            }
+
+            string[] wallTilemaps = { "Layer 1 - Wall", "Layer 2 - Wall", "Layer 3 - Wall" };
+            foreach (string wallName in wallTilemaps)
+            {
+                GameObject wallObj = GameObject.Find(wallName);
+                if (wallObj != null)
+                {
+                    if (EnsureModifier2D(wallObj, true, 1, false))
+                        modified = true;
+                }
+            }
+
+            Collider2D[] allColliders2D = Object.FindObjectsByType<Collider2D>(FindObjectsSortMode.None);
+            foreach (Collider2D col in allColliders2D)
+            {
+                if (col == null || col.gameObject == null)
+                    continue;
+
+                GameObject go = col.gameObject;
+                string goName = go.name;
+
+                if (go.GetComponent<Tilemap>() != null)
+                    continue;
+
+                if (col.isTrigger)
+                {
+                    if (EnsureModifier2D(go, false, 0, true))
+                        modified = true;
+                    continue;
+                }
+
+                bool isDynamicOrTarget =
+                    goName.Contains("PF Player") ||
+                    goName.Contains("Companion") ||
+                    goName.Contains("GuardNPC") ||
+                    goName.Contains("muhafız") ||
+                    go.GetComponent<GuardDialogueTrigger>() != null ||
+                    go.GetComponent<TreasureChest>() != null ||
+                    goName.Contains("Chest") ||
+                    go.GetComponent<StoneGate>() != null ||
+                    goName.Contains("Gate") ||
+                    go.GetComponent<RuneAltar>() != null ||
+                    (go.GetComponent<Rigidbody2D>() != null && go.GetComponent<Rigidbody2D>().bodyType == RigidbodyType2D.Dynamic);
+
+                if (isDynamicOrTarget)
+                {
+                    if (EnsureModifier2D(go, false, 0, true))
+                        modified = true;
+                    continue;
+                }
+
+                if (EnsureModifier2D(go, true, 1, false))
+                    modified = true;
+            }
+
+            if (Configure2DNavMeshAgents())
+            {
+                modified = true;
+            }
+
+            if (surface2D.navMeshData == null)
+            {
+                surface2D.BuildNavMesh();
+#if UNITY_EDITOR
+                if (!Application.isPlaying && surface2D.navMeshData != null && !UnityEditor.EditorUtility.IsPersistent(surface2D.navMeshData))
+                {
+                    string dir = "Assets/Scenes/MainScene";
+                    if (!System.IO.Directory.Exists(dir))
+                    {
+                        System.IO.Directory.CreateDirectory(dir);
+                    }
+                    string assetPath = "Assets/Scenes/MainScene/NavMesh-NavMesh2D.asset";
+                    UnityEditor.AssetDatabase.DeleteAsset(assetPath);
+                    UnityEditor.AssetDatabase.CreateAsset(surface2D.navMeshData, assetPath);
+                    UnityEditor.AssetDatabase.SaveAssets();
+                }
+#endif
+                modified = true;
+            }
+
+#if UNITY_EDITOR
+            if (modified && !Application.isPlaying)
+            {
+                UnityEditor.EditorUtility.SetDirty(surface2D);
+                UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(navMeshObj.scene);
+            }
+#endif
+        }
+
+        private static bool EnsureModifier2D(GameObject go, bool overrideArea, int area, bool ignoreFromBuild)
+        {
+            bool changed = false;
+
+            Component[] comps = go.GetComponents<Component>();
+            foreach (Component c in comps)
+            {
+                if (c != null && c.GetType().FullName == "Unity.AI.Navigation.NavMeshModifier")
+                {
+                    if (Application.isPlaying)
+                        Object.Destroy(c);
+                    else
+                        Object.DestroyImmediate(c);
+                    changed = true;
+                }
+            }
+
+            NavMeshModifier mod = go.GetComponent<NavMeshModifier>();
+            if (mod == null)
+            {
+                mod = go.AddComponent<NavMeshModifier>();
+                changed = true;
+            }
+
+            if (mod.overrideArea != overrideArea ||
+                mod.area != area ||
+                mod.ignoreFromBuild != ignoreFromBuild)
+            {
+                mod.overrideArea = overrideArea;
+                mod.area = area;
+                mod.ignoreFromBuild = ignoreFromBuild;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        public static bool Configure2DNavMeshAgents()
+        {
+            bool changed = false;
+
+            GameObject playerObj = GameObject.Find("PF Player");
+            Transform keyChestTransform = null;
+
+            TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+            foreach (TreasureChest chest in chests)
+            {
+                if (chest != null && chest.transform.position.x > 10f)
+                {
+                    keyChestTransform = chest.transform;
+                    break;
+                }
+            }
+            if (keyChestTransform == null)
+            {
+                SpriteRenderer[] allSrs = Object.FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None);
+                foreach (SpriteRenderer sr in allSrs)
+                {
+                    if (sr != null && sr.gameObject.name.Contains("Chest") && sr.transform.position.x > 10f)
+                    {
+                        keyChestTransform = sr.transform;
+                        break;
+                    }
+                }
+            }
+
+            UnityEngine.AI.NavMeshAgent[] agents = Object.FindObjectsByType<UnityEngine.AI.NavMeshAgent>(FindObjectsSortMode.None);
+            foreach (UnityEngine.AI.NavMeshAgent agent in agents)
+            {
+                if (agent == null)
+                    continue;
+
+                GameObject go = agent.gameObject;
+
+                if (agent.updateRotation)
+                {
+                    agent.updateRotation = false;
+                    changed = true;
+                }
+                if (agent.updateUpAxis)
+                {
+                    agent.updateUpAxis = false;
+                    changed = true;
+                }
+                if (Mathf.Abs(agent.baseOffset) > 0.001f)
+                {
+                    agent.baseOffset = 0f;
+                    changed = true;
+                }
+
+                if (go.GetComponent<AgentOverride2d>() == null)
+                {
+                    go.AddComponent<AgentOverride2d>();
+                    changed = true;
+                }
+
+                if (Quaternion.Angle(go.transform.rotation, Quaternion.identity) > 0.1f)
+                {
+                    go.transform.rotation = Quaternion.identity;
+                    changed = true;
+                }
+
+                CompanionAgent companion = go.GetComponent<CompanionAgent>();
+                if (companion != null || go.name.Contains("Companion"))
+                {
+                    Vector3 pos = go.transform.position;
+                    if (Mathf.Abs(pos.z) > 0.01f)
+                    {
+                        go.transform.position = new Vector3(pos.x, pos.y, 0f);
+                        changed = true;
+                    }
+
+                    if (agent.radius > 0.25f)
+                    {
+                        agent.radius = 0.2f;
+                        changed = true;
+                    }
+                    if (agent.stoppingDistance > 1.2f)
+                    {
+                        agent.stoppingDistance = 1.0f;
+                        changed = true;
+                    }
+
+                    SpriteRenderer sr = go.GetComponent<SpriteRenderer>();
+                    if (sr != null)
+                    {
+                        if (!sr.enabled)
+                        {
+                            sr.enabled = true;
+                            changed = true;
+                        }
+                        if (sr.sortingLayerName != "Layer 3" || sr.sortingOrder < 50)
+                        {
+                            sr.sortingLayerName = "Layer 3";
+                            sr.sortingOrder = 50;
+                            changed = true;
+                        }
+                    }
+
+                    if (companion != null)
+                    {
+                        if (companion.ajanMotoru == null)
+                        {
+                            companion.ajanMotoru = agent;
+                            changed = true;
+                        }
+                        if (companion.oyuncuHedefi == null && playerObj != null)
+                        {
+                            companion.oyuncuHedefi = playerObj.transform;
+                            changed = true;
+                        }
+                        if (companion.sandikHedefi == null && keyChestTransform != null)
+                        {
+                            companion.sandikHedefi = keyChestTransform;
+                            changed = true;
+                        }
+                    }
+                }
+
+                GuardAgent guard = go.GetComponent<GuardAgent>();
+                if (guard != null || go.name.Contains("GuardNPC"))
+                {
+                    MeshRenderer mr = go.GetComponent<MeshRenderer>();
+                    if (mr != null && mr.enabled)
+                    {
+                        mr.enabled = false;
+                        changed = true;
+                    }
+
+                    if (GameObject.Find("Hedef") == null && agent.enabled)
+                    {
+                        agent.enabled = false;
+                        changed = true;
+                    }
+                }
+
+#if UNITY_EDITOR
+                if (changed && !Application.isPlaying)
+                {
+                    UnityEditor.EditorUtility.SetDirty(go);
+                }
+#endif
+            }
+
+            GameObject guardSpriteObj = GameObject.Find("muhafız - normal_0");
+            if (guardSpriteObj != null)
+            {
+                if (Quaternion.Angle(guardSpriteObj.transform.rotation, Quaternion.identity) > 0.1f)
+                {
+                    guardSpriteObj.transform.rotation = Quaternion.identity;
+                    changed = true;
+                }
+
+                Vector3 gPos = guardSpriteObj.transform.position;
+                if (Mathf.Abs(gPos.z) > 0.01f || Vector2.Distance(new Vector2(gPos.x, gPos.y), new Vector2(5.74f, -6.758f)) > 0.5f)
+                {
+                    guardSpriteObj.transform.position = new Vector3(5.74f, -6.758f, 0f);
+                    changed = true;
+                }
+
+                SpriteRenderer gSr = guardSpriteObj.GetComponent<SpriteRenderer>();
+                if (gSr != null)
+                {
+                    if (!gSr.enabled)
+                    {
+                        gSr.enabled = true;
+                        changed = true;
+                    }
+                    if (gSr.sortingLayerName != "Layer 3" || gSr.sortingOrder < 20)
+                    {
+                        gSr.sortingLayerName = "Layer 3";
+                        gSr.sortingOrder = 20;
+                        changed = true;
+                    }
+                }
+            }
+
+            return changed;
+        }
+
         public static void SyncSpikyWallsPlacement()
         {
             bool modified = false;
             GameObject dirtyRef = null;
 
-            int defaultPhysicsLayer = 0; // Default layer: Layer 1, Layer 2 ve Layer 3 ile her zaman çarpışır
+            int layer1Physics = LayerMask.NameToLayer("Layer 1");
+            if (layer1Physics < 0)
+                layer1Physics = 0;
 
             SpriteRenderer[] allRenderers = Object.FindObjectsByType<SpriteRenderer>(FindObjectsSortMode.None);
             foreach (SpriteRenderer sr in allRenderers)
@@ -89,7 +497,6 @@ namespace Cainos.PixelArtTopDown_Basic
                 GameObject wallObj = sr.gameObject;
                 dirtyRef = wallObj;
 
-                // 1. Mevcut (X, Y) konumunu koru, yalnızca Z != 0 ise Z = 0 yap
                 Vector3 pos = wallObj.transform.position;
                 if (Mathf.Abs(pos.z) > 0.001f)
                 {
@@ -97,95 +504,63 @@ namespace Cainos.PixelArtTopDown_Basic
                     modified = true;
                 }
 
-                // 2. Y ekseninde 180 derece döndürülmüşse (2D BoxCollider2D hatasını önlemek için) rotasyonu sıfırlayıp flipX aç
-                Vector3 euler = wallObj.transform.eulerAngles;
-                if (Mathf.Abs(Mathf.DeltaAngle(euler.y, 180f)) < 15f)
+                if (wallObj.layer != layer1Physics)
                 {
-                    wallObj.transform.rotation = Quaternion.Euler(0f, 0f, euler.z);
-                    sr.flipX = !sr.flipX;
+                    wallObj.layer = layer1Physics;
                     modified = true;
                 }
 
-                // 3. Physics Layer: Tüm katmanlarla (Layer 1/2/3) çarpışması için Default (0) yap
-                if (wallObj.layer != defaultPhysicsLayer)
+                if (sr.sortingLayerName != "Layer 1")
                 {
-                    wallObj.layer = defaultPhysicsLayer;
+                    sr.sortingLayerName = "Layer 1";
                     modified = true;
                 }
 
-                // 4. Sorting Layer: Üst katman uçurum karolarının (Layer 2) altında kesilmemesi için "Layer 2" yap, mevcut Order'ı koru
-                if (sr.sortingLayerName != "Layer 2")
-                {
-                    sr.sortingLayerName = "Layer 2";
-                    modified = true;
-                }
-                if (sr.sortingOrder <= 0)
-                {
-                    sr.sortingOrder = 3;
-                    modified = true;
-                }
-
-                // 5. Collider: Eksikse BoxCollider2D ekle ve katı engel (isTrigger = false) olduğundan emin ol
                 BoxCollider2D boxCol = wallObj.GetComponent<BoxCollider2D>();
-                if (boxCol == null)
+                if (boxCol != null && sr.sprite != null)
                 {
-                    boxCol = wallObj.AddComponent<BoxCollider2D>();
-                    if (sr.sprite != null)
+                    bool wasArtificiallyExpanded =
+                        (Vector2.Distance(boxCol.size, new Vector2(8.00f, 4.27f)) < 0.05f && Vector2.Distance(boxCol.offset, new Vector2(-1.10f, -0.55f)) < 0.05f) ||
+                        (Vector2.Distance(boxCol.size, new Vector2(6.05f, 5.05f)) < 0.05f && Vector2.Distance(boxCol.offset, new Vector2(0f, -0.50f)) < 0.05f);
+
+                    if (wasArtificiallyExpanded)
                     {
                         boxCol.size = sr.sprite.bounds.size;
                         boxCol.offset = Vector2.zero;
+                        modified = true;
                     }
-                    modified = true;
-                }
-                if (!boxCol.enabled || boxCol.isTrigger)
-                {
-                    boxCol.enabled = true;
-                    boxCol.isTrigger = false;
-                    modified = true;
                 }
             }
 
-            GameObject guardObj = GameObject.Find("muhafız - normal_0");
-            if (guardObj != null)
+            string[] terraceStoneNames = { "PF Props - Stone 01", "PF Props - Stone 03" };
+            foreach (string stoneName in terraceStoneNames)
             {
-                Vector3 targetGuardPos = new Vector3(5.32f, -6.48f, 5.320569f);
-                if (Vector3.Distance(guardObj.transform.position, targetGuardPos) > 0.0001f)
+                GameObject stoneObj = GameObject.Find(stoneName);
+                if (stoneObj != null && stoneObj.transform.position.x > 11.5f)
                 {
-                    guardObj.transform.position = targetGuardPos;
-                    dirtyRef = guardObj;
-                    modified = true;
-                }
+                    if (stoneObj.layer != layer1Physics)
+                    {
+                        stoneObj.layer = layer1Physics;
+                        dirtyRef = stoneObj;
+                        modified = true;
+                    }
 
-                // Muhafızın içinden geçilmesini önlemek için Physics Layer = Default (0) ve katı BoxCollider2D ayarla
-                if (guardObj.layer != defaultPhysicsLayer)
-                {
-                    guardObj.layer = defaultPhysicsLayer;
-                    dirtyRef = guardObj;
-                    modified = true;
-                }
-
-                BoxCollider2D guardCol = guardObj.GetComponent<BoxCollider2D>();
-                if (guardCol == null)
-                {
-                    guardCol = guardObj.AddComponent<BoxCollider2D>();
-                    dirtyRef = guardObj;
-                    modified = true;
-                }
-
-                Vector2 targetGuardSize = new Vector2(1.25f, 1.65f);
-                Vector2 targetGuardOffset = new Vector2(0f, -0.1f);
-                if (!guardCol.enabled || guardCol.isTrigger ||
-                    Vector2.Distance(guardCol.size, targetGuardSize) > 0.05f ||
-                    Vector2.Distance(guardCol.offset, targetGuardOffset) > 0.05f)
-                {
-                    guardCol.enabled = true;
-                    guardCol.isTrigger = false;
-                    guardCol.size = targetGuardSize;
-                    guardCol.offset = targetGuardOffset;
-                    dirtyRef = guardObj;
-                    modified = true;
+                    BoxCollider2D stoneCol = stoneObj.GetComponent<BoxCollider2D>();
+                    if (stoneCol != null &&
+                        Vector2.Distance(stoneCol.size, new Vector2(0.75f, 0.55f)) < 0.05f &&
+                        Vector2.Distance(stoneCol.offset, new Vector2(0f, 0.25f)) < 0.05f)
+                    {
+                        if (Application.isPlaying)
+                            Object.Destroy(stoneCol);
+                        else
+                            Object.DestroyImmediate(stoneCol);
+                        dirtyRef = stoneObj;
+                        modified = true;
+                    }
                 }
             }
+
+            Physics2D.SyncTransforms();
 
             GameObject brokenStairsDecal = GameObject.Find("TX Stairs Broken L L");
             if (brokenStairsDecal != null && Mathf.Abs(brokenStairsDecal.transform.position.z) > 0.001f)
@@ -204,11 +579,6 @@ namespace Cainos.PixelArtTopDown_Basic
 #endif
         }
 
-        /// <summary>
-        /// Sağ taraftaki doğu merdiveni (PF Struct - Stairs E 02) yeni konumuna (y ≈ 2.07) taşındığında,
-        /// merdivenin X konumunu 12'ye hizalar, bulunduğu (11, 1..2) noktasını merdiven geçiş bölgesi yapar
-        /// ve eski (11, 4..5) boşluğunu duvarla kapatır.
-        /// </summary>
         public static void SyncEastStairsTilemapRegion()
         {
             GameObject eastStairs = GameObject.Find("PF Struct - Stairs E 02");
@@ -230,7 +600,6 @@ namespace Cainos.PixelArtTopDown_Basic
             Tilemap layer1Wall = FindTilemap("Layer 1 - Wall");
             Tilemap layer1Shadow = FindTilemap("Layer 1 - Wall Shadow");
 
-            // 1. Layer 2 - Wall: Eski merdiven boşluğunu (11, 4..5) kapat, yeni merdiven bölgesini (11, 1..2) aç
             if (layer2Wall != null)
             {
                 TileBase cliffWall2 = layer2Wall.GetTile(new Vector3Int(11, 3, 0));
@@ -259,7 +628,6 @@ namespace Cainos.PixelArtTopDown_Basic
                     modified = true;
                 }
 
-                // (10, 1) karesinin görselini koruyup merdiven sol girişinde takılmayı önlemek için collider'ını kapat
                 if (layer2Wall.GetColliderType(new Vector3Int(10, 1, 0)) != Tile.ColliderType.None)
                 {
                     layer2Wall.SetColliderType(new Vector3Int(10, 1, 0), Tile.ColliderType.None);
@@ -269,7 +637,6 @@ namespace Cainos.PixelArtTopDown_Basic
                 RefreshTilemapCollider(layer2Wall);
             }
 
-            // 2. Layer 2 - Grass: Yeni merdivenin üstünü (11, 1..2) temizle ki karakter Layer 1'de görünmez olmasın; eski yeri (11, 4..5) doldur
             if (layer2Grass != null)
             {
                 TileBase cliffGrass2 = layer2Grass.GetTile(new Vector3Int(11, 3, 0));
@@ -299,7 +666,6 @@ namespace Cainos.PixelArtTopDown_Basic
                 }
             }
 
-            // 3. Layer 1 - Grass: Yeni merdivenin altına (11, 1..2) zemin karolarını koy
             if (layer1Grass != null)
             {
                 TileBase grassBottom = layer1Grass.GetTile(new Vector3Int(11, 4, 0));
@@ -317,7 +683,6 @@ namespace Cainos.PixelArtTopDown_Basic
                 }
             }
 
-            // 4. Layer 1 - Wall: Merdiven duvar kesiti karosunu (11, 4)'ten (11, 1)'e taşı ve collider ayarlarını güncelle
             if (layer1Wall != null)
             {
                 TileBase standardWall1 = layer1Wall.GetTile(new Vector3Int(11, 3, 0));
@@ -339,7 +704,6 @@ namespace Cainos.PixelArtTopDown_Basic
                 RefreshTilemapCollider(layer1Wall);
             }
 
-            // 5. Layer 1 - Wall Shadow: Gölge boşluğunu (12, 4)'ten (12, 1)'e taşı
             if (layer1Shadow != null)
             {
                 TileBase shadowTile = layer1Shadow.GetTile(new Vector3Int(12, 3, 0));
