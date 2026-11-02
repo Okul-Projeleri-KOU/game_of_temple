@@ -73,6 +73,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CompanionAgent
   ajanMotoru: {fileID: 780050127905858610}
+  sensorKontrolcu: {fileID: 1548527503319159856}
   oyuncuHedefi: {fileID: 0}
   sandikHedefi: {fileID: 0}
 --- !u!114 &1548527503319159856

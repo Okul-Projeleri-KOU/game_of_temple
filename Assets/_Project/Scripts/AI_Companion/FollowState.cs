@@ -9,8 +9,12 @@ public class FollowState : BaseAgentState
 
     public override void UpdateState(CompanionAgent agent)
     {
-        
-        if (agent.oyuncuHedefi != null && agent.ajanMotoru != null)
+        if (agent.sensorKontrolcu != null)
+        {
+            agent.sensorKontrolcu.IsObstacleAhead();
+        }
+
+        if (agent.oyuncuHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
         {
             agent.ajanMotoru.SetDestination(agent.oyuncuHedefi.position);
         }

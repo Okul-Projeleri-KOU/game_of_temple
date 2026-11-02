@@ -1,18 +1,29 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-public class CompanionAgent : MonoBehaviour
+public class CompanionAgent : MonoBehaviour, ICompanionCommand
 {
     private BaseAgentState currentState;
 
-    [Header("NavMesh ve Hedefler")]
+    public BaseAgentState CurrentState => currentState;
+
+    [Header("NavMesh, Sensör ve Hedefler")]
     public NavMeshAgent ajanMotoru;
+    public RaycastSensorController sensorKontrolcu;
     public Transform oyuncuHedefi;
     public Transform sandikHedefi;
 
     private void Awake()
     {
-        ajanMotoru = GetComponent<NavMeshAgent>();
+        if (ajanMotoru == null)
+        {
+            ajanMotoru = GetComponent<NavMeshAgent>();
+        }
+
+        if (sensorKontrolcu == null)
+        {
+            sensorKontrolcu = GetComponent<RaycastSensorController>();
+        }
     }
 
     private void Start()
@@ -27,12 +38,25 @@ public class CompanionAgent : MonoBehaviour
             currentState.UpdateState(this);
         }
 
-        
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            ChangeState(new NavigateToKeyState());
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsGuardChatOpen)
+            {
+                return;
+            }
+
+            CommandMoveTo(sandikHedefi);
+        }
+    }
+
+    public void CommandMoveTo(Transform target)
+    {
+        if (target != null)
+        {
+            sandikHedefi = target;
         }
 
+        ChangeState(new NavigateToKeyState());
     }
 
     public void ChangeState(BaseAgentState newState)

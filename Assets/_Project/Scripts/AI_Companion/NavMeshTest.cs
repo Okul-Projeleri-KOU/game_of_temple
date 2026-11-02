@@ -1,18 +1,23 @@
 using UnityEngine;
-using UnityEngine.AI; 
+using UnityEngine.AI;
 
 public class NavMeshTest : MonoBehaviour
 {
     public Transform hedefKuresi;
     private NavMeshAgent ajanMotoru;
 
-    void Start()
+    private void Start()
     {
-        ajanMotoru = GetComponent<NavMeshAgent>();
-        
-        if(hedefKuresi != null)
+        CompanionAgent companion = GetComponent<CompanionAgent>();
+        if (companion != null && companion.enabled)
         {
-            
+            return;
+        }
+
+        ajanMotoru = GetComponent<NavMeshAgent>();
+
+        if (ajanMotoru != null && hedefKuresi != null && ajanMotoru.isOnNavMesh)
+        {
             ajanMotoru.SetDestination(hedefKuresi.position);
         }
     }
