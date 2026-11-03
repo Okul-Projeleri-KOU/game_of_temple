@@ -76,6 +76,33 @@ MonoBehaviour:
   sensorKontrolcu: {fileID: 1548527503319159856}
   oyuncuHedefi: {fileID: 0}
   sandikHedefi: {fileID: 0}
+  baykusRenderer: {fileID: 6334742434532459297}
+  flyAnimFps: 10
+  hoverAnimFps: 6
+  northFlyFrames:
+  - {fileID: -2057185714, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 1590771023, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 1385082810, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -1864436474, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -1159454020, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -977189989, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -227465951, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -240849185, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  southFlyFrames:
+  - {fileID: 999003920, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -292460555, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 1314402056, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 10338086, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 1725553798, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  sideFlyFrames:
+  - {fileID: -397981517, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -1326790986, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 935125173, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: 1568153935, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -541543555, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -468220941, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -471671044, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  - {fileID: -154152006, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
 --- !u!114 &1548527503319159856
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -174,7 +201,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -2057185714, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
+  m_Sprite: {fileID: 999003920, guid: 8cc183e459994d54b975ec4a21be1be3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

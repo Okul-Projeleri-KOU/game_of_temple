@@ -28,7 +28,7 @@ public class LLMManager : MonoBehaviour, IDialogueService
     [Header("Ollama Yerel Sunucu Ayarları")]
     [SerializeField] private string apiUrl = "http://localhost:11434/api/generate";
     [SerializeField] private string modelName = "llama3.2";
-    [SerializeField] private int requestTimeoutSeconds = 15;
+    [SerializeField] private int requestTimeoutSeconds = 120;
 
     public async Task<NPCResponseDTO> SendMessageAsync(string text)
     {
@@ -52,7 +52,7 @@ public class LLMManager : MonoBehaviour, IDialogueService
                 request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = Mathf.Max(5, requestTimeoutSeconds);
+                request.timeout = requestTimeoutSeconds > 0 ? Mathf.Max(60, requestTimeoutSeconds) : 120;
 
                 UnityWebRequestAsyncOperation operation = request.SendWebRequest();
                 while (!operation.isDone)

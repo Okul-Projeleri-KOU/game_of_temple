@@ -331,7 +331,23 @@ public class DialogueManager : MonoBehaviour
 
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.RespawnPlayer();
+            GuardAgent guardAgent = FindFirstObjectByType<GuardAgent>();
+            if (guardAgent == null)
+            {
+                GameObject guardVisualObj = GameObject.Find("muhafız - normal_0");
+                if (guardVisualObj != null)
+                {
+                    guardAgent = guardVisualObj.GetComponent<GuardAgent>() ?? guardVisualObj.AddComponent<GuardAgent>();
+                }
+            }
+            if (guardAgent != null)
+            {
+                guardAgent.StartAttackPlayer();
+            }
+            else
+            {
+                GameManager.Instance.RespawnPlayer();
+            }
         }
     }
 
@@ -2033,7 +2049,7 @@ public class GuardDialogueTrigger : MonoBehaviour, IInteractable
             transform.rotation = Quaternion.identity;
         }
 
-        if (gameObject.name.Contains("muhafız"))
+        if (!GuardAgent.IsAnyGuardAttacking && gameObject.name.Contains("muhafız"))
         {
             Vector3 pos = transform.position;
             if (Mathf.Abs(pos.z) > 0.01f || Vector2.Distance(new Vector2(pos.x, pos.y), new Vector2(5.74f, -6.758f)) > 0.5f)

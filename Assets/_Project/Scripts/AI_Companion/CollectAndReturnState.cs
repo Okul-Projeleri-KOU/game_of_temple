@@ -8,6 +8,7 @@ public class CollectAndReturnState : BaseAgentState
 
         if (agent.oyuncuHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
         {
+            agent.ajanMotoru.isStopped = false;
             agent.ajanMotoru.SetDestination(agent.oyuncuHedefi.position);
         }
     }
@@ -26,10 +27,14 @@ public class CollectAndReturnState : BaseAgentState
 
         if (!agent.ajanMotoru.pathPending)
         {
-            float distToPlayer = Vector3.Distance(agent.transform.position, agent.oyuncuHedefi.position);
-            float stopThreshold = Mathf.Max(agent.ajanMotoru.stoppingDistance, 1.35f);
+            bool is2D = !agent.ajanMotoru.updateUpAxis || Object.FindFirstObjectByType<Grid>() != null;
+            float distToPlayer = is2D
+                ? Vector2.Distance(agent.transform.position, agent.oyuncuHedefi.position)
+                : Vector3.Distance(agent.transform.position, agent.oyuncuHedefi.position);
 
-            if (distToPlayer <= stopThreshold && agent.ajanMotoru.remainingDistance <= stopThreshold)
+            float stopThreshold = Mathf.Max(agent.ajanMotoru.stoppingDistance, 1.45f);
+
+            if (distToPlayer <= stopThreshold)
             {
                 if (GameManager.Instance != null)
                 {

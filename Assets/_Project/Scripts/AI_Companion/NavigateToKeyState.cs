@@ -11,6 +11,7 @@ public class NavigateToKeyState : BaseAgentState
 
         if (agent.sandikHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
         {
+            agent.ajanMotoru.isStopped = false;
             agent.ajanMotoru.SetDestination(agent.sandikHedefi.position);
         }
     }
@@ -40,14 +41,55 @@ public class NavigateToKeyState : BaseAgentState
 
         if (!agent.ajanMotoru.pathPending)
         {
-            float distToTarget = Vector3.Distance(agent.transform.position, agent.sandikHedefi.position);
-            float stopThreshold = Mathf.Max(agent.ajanMotoru.stoppingDistance, 1.35f);
+            bool is2D = !agent.ajanMotoru.updateUpAxis || Object.FindFirstObjectByType<Grid>() != null;
+            float distToTarget = is2D
+                ? Vector2.Distance(agent.transform.position, agent.sandikHedefi.position)
+                : Vector3.Distance(agent.transform.position, agent.sandikHedefi.position);
 
-            if (distToTarget <= stopThreshold && agent.ajanMotoru.remainingDistance <= stopThreshold)
+            float stopThreshold = Mathf.Max(agent.ajanMotoru.stoppingDistance, 1.45f);
+
+            if (distToTarget <= stopThreshold)
             {
-                Debug.Log("Sandığa başarıyla ulaşıldı! Anahtar alınıp oyuncuya dönülüyor.");
+                OpenTargetKeyChest(agent.sandikHedefi);
+                agent.MarkKeyTaskCompleted();
+
+                Debug.Log("Sandığa başarıyla ulaşıldı ve sandık açıldı! Anahtar alınıp oyuncuya dönülüyor.");
                 agent.ChangeState(new CollectAndReturnState());
             }
+        }
+    }
+
+    private static void OpenTargetKeyChest(Transform chestTarget)
+    {
+        if (chestTarget == null)
+            return;
+
+        TreasureChest chest = chestTarget.GetComponent<TreasureChest>();
+        if (chest == null)
+        {
+            chest = chestTarget.GetComponentInChildren<TreasureChest>();
+        }
+        if (chest == null)
+        {
+            chest = chestTarget.GetComponentInParent<TreasureChest>();
+        }
+
+        if (chest == null)
+        {
+            TreasureChest[] allChests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+            foreach (TreasureChest c in allChests)
+            {
+                if (c != null && c.transform.position.x > 0f)
+                {
+                    chest = c;
+                    break;
+                }
+            }
+        }
+
+        if (chest != null && !chest.IsOpen)
+        {
+            chest.Interact();
         }
     }
 
