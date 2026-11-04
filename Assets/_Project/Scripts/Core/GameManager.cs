@@ -23,6 +23,7 @@ public class GameManager : MonoBehaviour
 
     public bool HasKey => hasKey;
     public bool HasCompanion => hasCompanion;
+    public Transform PlayerTransform => playerTransform;
 
     public event Action<bool> OnKeyStateChanged;
     public event Action<bool> OnCompanionStateChanged;
@@ -37,6 +38,12 @@ public class GameManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Instance.spawnPoint = spawnPoint;
+            Instance.playerTransform = playerTransform;
+            Instance.SetHasKey(false);
+            Instance.SetHasCompanion(false);
+            Instance.SetGameState(GameState.Playing);
+            Instance.RespawnPlayer();
             Destroy(gameObject);
             return;
         }

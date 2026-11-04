@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -73,6 +73,10 @@ public class RuneAltar : MonoBehaviour, IInteractable
         targetAlpha = 1f;
         Debug.Log("Kadim Mühür aktifleşti! Kapı açılıyor.");
         OnAltarActivated?.Invoke();
+        if (DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.PlayRuneActivateSfx();
+        }
     }
 
     private void DeactivateAltar()

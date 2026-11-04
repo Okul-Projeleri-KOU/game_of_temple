@@ -1,4 +1,5 @@
 ﻿using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
@@ -27,6 +28,34 @@ public class AncientTablet : MonoBehaviour, IInteractable
     private static AncientTablet activeKitabeTablet;
     private static bool isKitabeOpen;
     private static float kitabeOpenedTime;
+    private bool hasBeenRead;
+
+    public bool IsPillar => gameObject != null && gameObject.name.IndexOf("Pillar", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+    public static int ReadTabletsCount { get; private set; }
+    public static int ReadPillarsCount { get; private set; }
+    public static bool HasReadAnyClue { get; private set; }
+
+    private static readonly List<AncientTablet> readPillars = new List<AncientTablet>();
+
+    public static void ResetReadCount()
+    {
+        ReadTabletsCount = 0;
+        ReadPillarsCount = 0;
+        if (readPillars != null)
+        {
+            readPillars.Clear();
+        }
+        HasReadAnyClue = false;
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        ResetReadCount();
+    }
+
+    public static bool IsAnyKitabeOpen => isKitabeOpen;
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
@@ -60,6 +89,12 @@ public class AncientTablet : MonoBehaviour, IInteractable
         if (oldStatueCanvas != null)
         {
             Destroy(oldStatueCanvas);
+        }
+
+        Transform oldAura = transform.Find("ReadAuraMarker");
+        if (oldAura != null)
+        {
+            Destroy(oldAura.gameObject);
         }
 
         EnsureSolidColliderOnObject(gameObject);
@@ -130,6 +165,13 @@ public class AncientTablet : MonoBehaviour, IInteractable
 #if UNITY_EDITOR
                 UnityEditor.EditorUtility.SetDirty(tablet);
 #endif
+                modified = true;
+            }
+
+            Transform oldAura = obj.transform.Find("ReadAuraMarker");
+            if (oldAura != null)
+            {
+                DestroyImmediate(oldAura.gameObject);
                 modified = true;
             }
 
@@ -302,6 +344,62 @@ public class AncientTablet : MonoBehaviour, IInteractable
         ShowKitabePopup();
     }
 
+    private void MarkAsReadVisual()
+    {
+        if (hasBeenRead)
+            return;
+
+        hasBeenRead = true;
+        ReadTabletsCount++;
+        HasReadAnyClue = true;
+
+        if (IsPillar)
+        {
+            if (readPillars != null && !readPillars.Contains(this))
+            {
+                readPillars.Add(this);
+                ReadPillarsCount = readPillars.Count;
+                if (ReadPillarsCount == 3)
+                {
+                    if (DialogueManager.Instance != null)
+                    {
+                        DialogueManager.Instance.ShowEventPopup(
+                            null,
+                            string.Empty,
+                            "3 SÜTUN ANITI İNCELENDİ",
+                            "3 sütunun sırrı çözüldü! Batı terasındaki sandığa gidebilirsin.",
+                            new Color(0.42f, 0.86f, 1f, 1f),
+                            3.2f,
+                            0f);
+                    }
+                }
+            }
+        }
+
+        Transform indicatorTr = transform.Find(IndicatorChildName);
+        if (indicatorTr == null)
+        {
+            Transform[] children = GetComponentsInChildren<Transform>(true);
+            foreach (Transform c in children)
+            {
+                if (c != null && c.name == IndicatorChildName)
+                {
+                    indicatorTr = c;
+                    break;
+                }
+            }
+        }
+
+        if (indicatorTr != null)
+        {
+            SpriteRenderer indSr = indicatorTr.GetComponent<SpriteRenderer>();
+            if (indSr != null)
+            {
+                indSr.color = new Color(0.40f, 0.95f, 0.55f, 1f);
+            }
+        }
+    }
+
 
     private void ShowKitabePopup()
     {
@@ -326,6 +424,7 @@ public class AncientTablet : MonoBehaviour, IInteractable
         activeKitabeTablet = this;
         isKitabeOpen = true;
         kitabeOpenedTime = Time.unscaledTime;
+        MarkAsReadVisual();
 
         if (kitabeImage != null && chosenSprite != null)
         {
@@ -363,7 +462,12 @@ public class AncientTablet : MonoBehaviour, IInteractable
 
         if (kitabeBodyText != null)
         {
-            kitabeBodyText.text = clueText;
+            string textToDisplay = clueText;
+            if (string.IsNullOrEmpty(textToDisplay) || textToDisplay.StartsWith("Kadim Tablet İpucusu: Kapıyı açmak için") || textToDisplay == "Q")
+            {
+                textToDisplay = GetFallbackTextForPosition(gameObject.name, transform.position);
+            }
+            kitabeBodyText.text = textToDisplay;
         }
 
         if (kitabeCanvas != null && !kitabeCanvas.gameObject.activeSelf)
@@ -594,9 +698,17 @@ public class AncientTablet : MonoBehaviour, IInteractable
 
     private static string GetFallbackTextForPosition(string objName, Vector3 pos)
     {
-        if (objName.Contains("Rune Pillar") || (pos.x > -5f && pos.x < -1f && pos.y > -3f && pos.y < -0.5f))
+        if (objName.IndexOf("Pillar", System.StringComparison.OrdinalIgnoreCase) >= 0)
         {
-            return "Kapıyı aşamayanların taşlaşmış hatıraları tapınağın dört bir yanına dağılmıştır. Son Muhafız'ın karşısına çıkmadan önce, düşenlerin son sözlerine kulak ver.";
+            if (objName.Contains("X3") || pos.y > 0.5f)
+            {
+                return "1. Kadim Sütun Yazıtı: 'Tapınağın kadim koruyucusu kanatlı bir yoldaştır. Batı terasındaki sandıkta derin uykudadır. 3 sütunun sırrını çözmeyen hiç kimse o sandığı açamaz.'";
+            }
+            if (objName.Contains("Broken") || pos.y < -1f)
+            {
+                return "3. Kırık Sütun Yazıtı: 'Son Muhafız tapınağın emanetini bekler. Karşısına saygıyla çıkıp görevini tamamlayanlara kapıyı açar; ciddiyetsiz ve hazırlıksız gelenleri ise kapıdan kovar.'";
+            }
+            return "2. Kadim Sütun Yazıtı: 'Kutsal kapının anahtarı doğu terasındaki dikenli geçidin ardında kilitlidir. Oraya hiçbir ölümlü yürüyerek ulaşamaz; sadece uçabilen bir dost o engeli aşabilir.'";
         }
 
         if (pos.x < -6f)

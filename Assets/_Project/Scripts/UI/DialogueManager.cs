@@ -44,24 +44,123 @@ public class DialogueManager : MonoBehaviour
     [SerializeField] private Sprite woodenGateOpenedShadowSprite;
     [SerializeField] private GameObject victoryScreenPanel;
     [SerializeField] private Image victoryGateIcon;
-    [SerializeField] private Image victoryKeyIcon;
     [SerializeField] private Button victoryRestartButton;
-    [SerializeField] private Button victoryContinueButton;
+
+    [Header("Olay Bildirim Paneli")]
+    [SerializeField] private GameObject eventPopupPanel;
+    [SerializeField] private CanvasGroup eventPopupCanvasGroup;
+    [SerializeField] private Image eventPopupBorderImage;
+    [SerializeField] private Image eventPopupIconBorderImage;
+    [SerializeField] private Image eventPopupIconImage;
+    [SerializeField] private TextMeshProUGUI eventPopupTitleText;
+    [SerializeField] private TextMeshProUGUI eventPopupSubtitleText;
+
+    [Header("Başlangıç Ekranı")]
+    [SerializeField] private GameObject startScreenPanel;
+    [SerializeField] private Button startGameButton;
+
+    [Header("Duraklatma Menüsü ve Görev Hedefi")]
+    [SerializeField] private GameObject pauseMenuPanel;
+    [SerializeField] private TextMeshProUGUI pauseMuteButtonText;
+    [SerializeField] private TextMeshProUGUI objectiveHudText;
+
+    private static bool hasShownInitialStartScreen;
+    private static bool isAudioMuted;
 
     private LLMManager llmManager;
     private CompanionAgent cachedCompanionAgent;
+    private RuneAltar cachedRuneAltar;
     private System.Reflection.FieldInfo companionStateField;
+    private Vector3 companionBaseLocalScale = Vector3.zero;
     private SpriteRenderer worldGuardRenderer;
     private Vector3 worldGuardBaseLocalScale = Vector3.zero;
+    private AudioSource ambientAudioSource;
+    private AudioSource sfxAudioSource;
+    private AudioClip companionUnlockClip;
+    private AudioClip companionSendClip;
+    private AudioClip keyUnlockClip;
+    private AudioClip runeActivateClip;
+    private AudioClip victoryClip;
+    private AudioClip defeatClip;
     private bool isWaitingForLLM;
-    private bool isTargetDoorOpened;
     private float thinkingAnimTimer;
     private Coroutine typewriterCoroutine;
     private Coroutine victorySequenceCoroutine;
+    private Coroutine eventPopupCoroutine;
+    private bool stateTrackingInitialized;
+    private bool lastTrackedHasCompanion;
+    private bool lastTrackedHasKey;
+    private string lastTrackedCompanionState = string.Empty;
+    private bool hasDiscoveredKeyChest;
+    private Transform storedKeyChestTarget;
+    private TreasureChest cachedEastChest;
+
+    public void NotifyClueDiscoveredEastChest()
+    {
+        SetKeyChestDiscovered(true);
+    }
+
+    public void SetKeyChestDiscovered(bool fromClue = false)
+    {
+        if (hasDiscoveredKeyChest)
+            return;
+
+        hasDiscoveredKeyChest = true;
+
+        if (cachedCompanionAgent != null)
+        {
+            if (storedKeyChestTarget != null)
+                cachedCompanionAgent.sandikHedefi = storedKeyChestTarget;
+            else if (cachedEastChest != null)
+                cachedCompanionAgent.sandikHedefi = cachedEastChest.transform;
+        }
+
+        bool hasComp = GameManager.Instance != null && GameManager.Instance.HasCompanion;
+        bool hasK = GameManager.Instance != null && GameManager.Instance.HasKey;
+
+        if (hasComp && !hasK)
+        {
+            PlayKeyUnlockSfx();
+            string sub = fromClue
+                ? "Yazıttan sandığın yerini öğrendin! [SPACE] ile Yoldaş'ı gönder"
+                : "Doğu sandığı keşfedildi! [SPACE] ile Yoldaş'ı anahtara gönder";
+
+            ShowEventPopup(
+                keyIconSprite,
+                string.Empty,
+                "ANAHTAR SANDIĞI KEŞFEDİLDİ",
+                sub,
+                new Color(1f, 0.85f, 0.38f, 1f),
+                3.2f,
+                0f);
+        }
+    }
+
+    public Sprite KeyIconSprite
+    {
+        get
+        {
+            EnsureSpritesLoaded();
+            return keyIconSprite;
+        }
+    }
+
+    public Sprite CompanionIconSprite
+    {
+        get
+        {
+            EnsureSpritesLoaded();
+            return companionIconSprite;
+        }
+    }
 
     public bool IsGuardChatOpen => guardChatPanel != null && guardChatPanel.activeSelf;
 
     public bool IsVictoryScreenOpen => victoryScreenPanel != null && victoryScreenPanel.activeSelf;
+
+    public bool IsStartScreenOpen => startScreenPanel != null && startScreenPanel.activeSelf;
+
+    public bool IsPauseMenuOpen => pauseMenuPanel != null && pauseMenuPanel.activeSelf;
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
@@ -71,13 +170,28 @@ public class DialogueManager : MonoBehaviour
         {
             if (!Application.isPlaying)
             {
+                if (UnityEditor.EditorBuildSettings.scenes == null || UnityEditor.EditorBuildSettings.scenes.Length == 0)
+                {
+                    const string mainScenePath = "Assets/Scenes/MainScene.unity";
+                    if (System.IO.File.Exists(mainScenePath))
+                    {
+                        UnityEditor.EditorBuildSettings.scenes = new[]
+                        {
+                            new UnityEditor.EditorBuildSettingsScene(mainScenePath, true)
+                        };
+                    }
+                }
+
                 DialogueManager dm = Object.FindFirstObjectByType<DialogueManager>();
                 if (dm != null)
                 {
                     dm.EnsureSpritesLoaded();
                     dm.EnsureGuardChatUI();
                     dm.EnsureStatusHudUI();
+                    dm.EnsureEventPopupUI();
                     dm.EnsureVictoryScreenUI();
+                    dm.EnsureStartScreenUI();
+                    dm.EnsurePauseMenuUI();
                     dm.EnsureGuardInteractableInScene();
                 }
             }
@@ -94,29 +208,61 @@ public class DialogueManager : MonoBehaviour
         }
 
         Instance = this;
+        Time.timeScale = 1f;
 
         EnsureSpritesLoaded();
         EnsureLLMManager();
         EnsureGuardChatUI();
         EnsureStatusHudUI();
+        EnsureEventPopupUI();
         EnsureVictoryScreenUI();
+        EnsureStartScreenUI();
+        EnsurePauseMenuUI();
         EnsureGuardInteractableInScene();
 
         HideDialogue();
         CloseGuardChat();
         HideVictoryScreen();
+        ClosePauseMenu();
+        HideEventPopupImmediate();
+        ShowInitialStartScreenIfNeeded();
         RefreshStatusHud();
+
+        if (Application.isPlaying)
+        {
+            EnsureAudioSources();
+        }
     }
 
     private void Update()
     {
         RefreshStatusHud();
 
+        if (IsStartScreenOpen)
+        {
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) ||
+                Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseStartScreen();
+            }
+            return;
+        }
+
         if (IsVictoryScreenOpen)
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Return) ||
+                Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space))
             {
-                HideVictoryScreen();
+                RestartGameFromVictory();
+            }
+            return;
+        }
+
+        if (IsPauseMenuOpen)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P))
+            {
+                ClosePauseMenu();
             }
             return;
         }
@@ -147,9 +293,47 @@ public class DialogueManager : MonoBehaviour
             return;
         }
 
-        if (dialoguePanel != null && dialoguePanel.activeSelf && Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.P))
         {
-            HideDialogue();
+            OpenPauseMenu();
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (dialoguePanel != null && dialoguePanel.activeSelf)
+            {
+                HideDialogue();
+            }
+            else if (!AncientTablet.IsAnyKitabeOpen)
+            {
+                OpenPauseMenu();
+            }
+        }
+
+        bool hasComp = GameManager.Instance != null && GameManager.Instance.HasCompanion;
+        bool hasK = GameManager.Instance != null && GameManager.Instance.HasKey;
+
+        if (Input.GetKeyDown(KeyCode.Space) && hasComp && !hasK && !hasDiscoveredKeyChest)
+        {
+            if (cachedCompanionAgent != null)
+            {
+                cachedCompanionAgent.ChangeState(new FollowState());
+                if (cachedCompanionAgent.ajanMotoru != null && cachedCompanionAgent.ajanMotoru.isOnNavMesh)
+                {
+                    cachedCompanionAgent.ajanMotoru.ResetPath();
+                }
+            }
+
+            PlayDefeatSfx();
+            ShowEventPopup(
+                companionIconSprite,
+                string.Empty,
+                "HEDEF BİLİNMİYOR",
+                "Önce anahtarın bulunduğu Doğu sandığını keşfetmelisin!",
+                new Color(1f, 0.74f, 0.32f, 1f),
+                2.6f,
+                0f);
         }
     }
 
@@ -260,7 +444,7 @@ public class DialogueManager : MonoBehaviour
 
         if (action == "KILL_PLAYER")
         {
-            UpdateStatusBadge("ÖFKELENDİ (KILL_PLAYER)", new Color(1f, 0.32f, 0.28f, 1f));
+            UpdateStatusBadge("SALDIRIYOR!", new Color(1f, 0.32f, 0.28f, 1f));
             if (guardReplyText != null)
             {
                 guardReplyText.color = new Color(1f, 0.45f, 0.40f, 1f);
@@ -274,24 +458,24 @@ public class DialogueManager : MonoBehaviour
             bool hasKey = GameManager.Instance != null && GameManager.Instance.HasKey;
             if (hasKey)
             {
-                UpdateStatusBadge("İKNA OLDU & KAPI AÇILDI (OPEN_DOOR)", new Color(0.40f, 0.92f, 0.52f, 1f));
+                UpdateStatusBadge("KAPI AÇILDI", new Color(0.40f, 0.92f, 0.52f, 1f));
                 if (guardReplyText != null)
                 {
                     guardReplyText.color = new Color(0.65f, 0.96f, 0.72f, 1f);
                 }
-                ShowGuardReplyTypewriter(reply + "\n\n<color=#72F594>[Kutsal Anahtar onaylandı — Tapınağın Hedef Kapısı açıldı!]</color>");
+                ShowGuardReplyTypewriter(reply);
                 HandleOpenDoorAction();
             }
             else
             {
-                UpdateStatusBadge("ANAHTAR EKSİK! (ÖNCE ANAHTARI BUL)", new Color(1f, 0.72f, 0.25f, 1f));
+                UpdateStatusBadge("ANAHTAR GEREKLİ", new Color(1f, 0.72f, 0.25f, 1f));
                 if (guardReplyText != null)
                 {
                     guardReplyText.color = new Color(1f, 0.85f, 0.52f, 1f);
                 }
                 ShowGuardReplyTypewriter(
                     reply +
-                    "\n\n<color=#FFBE44>[Muhafız sözlerine ikna oldu (OPEN_DOOR), ancak envanterinde 'Kutsal Anahtar' (HasKey = false) olmadığı için kapının kilidini açamıyor! Önce Otonom Yoldaş'ı (SPACE) doğu terasındaki sandığa gönderip anahtarı almalısın.]</color>");
+                    "\n\n<color=#FFBE44>[Muhafız ikna oldu ancak kapıyı açmak için Kutsal Anahtar gerekiyor. Önce Yoldaş ile doğu terasındaki sandıktan anahtarı al.]</color>");
 
                 if (playerInputField != null && IsGuardChatOpen)
                 {
@@ -302,7 +486,7 @@ public class DialogueManager : MonoBehaviour
         }
         else
         {
-            UpdateStatusBadge("BEKLİYOR (WAIT)", new Color(0.92f, 0.78f, 0.42f, 1f));
+            UpdateStatusBadge("DİNLİYOR", new Color(0.92f, 0.78f, 0.42f, 1f));
             if (guardReplyText != null)
             {
                 guardReplyText.color = new Color(0.95f, 0.91f, 0.83f, 1f);
@@ -324,37 +508,47 @@ public class DialogueManager : MonoBehaviour
         if (sendButton != null)
             sendButton.interactable = false;
 
-        yield return new WaitForSecondsRealtime(2.4f);
+        yield return new WaitForSecondsRealtime(1.8f);
 
         SetWorldGuardThinkingSprite(false);
         CloseGuardChat();
 
-        if (GameManager.Instance != null)
+        GuardAgent guardAgent = FindFirstObjectByType<GuardAgent>();
+        if (guardAgent == null)
         {
-            GuardAgent guardAgent = FindFirstObjectByType<GuardAgent>();
-            if (guardAgent == null)
+            GameObject guardVisualObj = GameObject.Find("muhafız - normal_0");
+            if (guardVisualObj != null)
             {
-                GameObject guardVisualObj = GameObject.Find("muhafız - normal_0");
-                if (guardVisualObj != null)
+                guardAgent = guardVisualObj.GetComponent<GuardAgent>();
+                if (guardAgent == null)
                 {
-                    guardAgent = guardVisualObj.GetComponent<GuardAgent>() ?? guardVisualObj.AddComponent<GuardAgent>();
+                    guardAgent = guardVisualObj.AddComponent<GuardAgent>();
                 }
             }
-            if (guardAgent != null)
+        }
+
+        if (guardAgent != null)
+        {
+            guardAgent.StartAttackPlayer();
+            float waitTimer = 0f;
+            while (GuardAgent.IsAnyGuardAttacking && waitTimer < 3.2f)
             {
-                guardAgent.StartAttackPlayer();
-            }
-            else
-            {
-                GameManager.Instance.RespawnPlayer();
+                waitTimer += Time.unscaledDeltaTime;
+                yield return null;
             }
         }
+
+        ShowEndScreen(
+            false,
+            "ÖLDÜNÜZ",
+            "Tapınak Muhafızı seni yakaladı.",
+            guardNormalSprite != null ? guardNormalSprite : keyIconSprite,
+            2.2f);
     }
 
     public void HandleOpenDoorAction()
     {
         EnsureSpritesLoaded();
-        isTargetDoorOpened = true;
 
         GameObject targetWoodenGate = FindTargetWoodenGate();
         if (targetWoodenGate != null)
@@ -417,10 +611,25 @@ public class DialogueManager : MonoBehaviour
         if (sendButton != null)
             sendButton.interactable = false;
 
-        yield return new WaitForSecondsRealtime(2.5f);
+        yield return new WaitForSecondsRealtime(1.8f);
 
         CloseGuardChat();
-        ShowVictoryScreen();
+
+        ShowEventPopup(
+            woodenGateOpenedSprite != null ? woodenGateOpenedSprite : keyIconSprite,
+            string.Empty,
+            "KAPI AÇILDI",
+            "Tapınağın kapısı açıldı!",
+            new Color(0.42f, 0.94f, 0.56f, 1f),
+            1.6f,
+            0f);
+
+        yield return new WaitForSecondsRealtime(1.3f);
+
+        if (!IsVictoryScreenOpen)
+        {
+            ShowVictoryScreen();
+        }
         victorySequenceCoroutine = null;
     }
 
@@ -828,7 +1037,7 @@ public class DialogueManager : MonoBehaviour
         Canvas targetCanvas = null;
         if (dialoguePanel != null)
         {
-            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
         }
         if (targetCanvas == null)
         {
@@ -1254,6 +1463,142 @@ public class DialogueManager : MonoBehaviour
             closeButton.onClick.RemoveListener(CloseGuardChat);
             closeButton.onClick.AddListener(CloseGuardChat);
         }
+
+        EnsureQuickPromptButtons();
+    }
+
+    private void EnsureQuickPromptButtons()
+    {
+        if (guardChatPanel == null)
+            return;
+
+        Transform mainFrame = guardChatPanel.transform.Find("MainFrame");
+        if (mainFrame == null)
+            return;
+
+        Transform existingQuickRow = mainFrame.Find("QuickPromptsRow");
+        Button persuadeBtn = null;
+        Button provokeBtn = null;
+
+        if (existingQuickRow != null)
+        {
+            Transform p1 = existingQuickRow.Find("PersuadeQuickBtn");
+            if (p1 != null)
+                persuadeBtn = p1.GetComponent<Button>();
+            Transform p2 = existingQuickRow.Find("ProvokeQuickBtn");
+            if (p2 != null)
+                provokeBtn = p2.GetComponent<Button>();
+        }
+        else
+        {
+            TMP_FontAsset sharedFont = FindSharedFont();
+
+            GameObject rowObj = new GameObject("QuickPromptsRow");
+            rowObj.transform.SetParent(mainFrame, false);
+            RectTransform rowRt = rowObj.AddComponent<RectTransform>();
+            rowRt.anchorMin = new Vector2(0f, 1f);
+            rowRt.anchorMax = new Vector2(1f, 1f);
+            rowRt.pivot = new Vector2(0.5f, 1f);
+            rowRt.anchoredPosition = new Vector2(0f, -14f);
+            rowRt.sizeDelta = new Vector2(0f, 34f);
+
+            persuadeBtn = CreateQuickPromptButton(
+                rowObj.transform,
+                "PersuadeQuickBtn",
+                new Vector2(360f, 0f),
+                new Vector2(175f, 30f),
+                "✦ İkna Cümlesi",
+                new Color(0.16f, 0.36f, 0.24f, 0.95f),
+                new Color(0.45f, 0.90f, 0.58f, 0.85f),
+                sharedFont);
+
+            provokeBtn = CreateQuickPromptButton(
+                rowObj.transform,
+                "ProvokeQuickBtn",
+                new Vector2(545f, 0f),
+                new Vector2(175f, 30f),
+                "⚔ Kışkırtma Cümlesi",
+                new Color(0.40f, 0.16f, 0.16f, 0.95f),
+                new Color(0.95f, 0.45f, 0.42f, 0.85f),
+                sharedFont);
+        }
+
+        if (persuadeBtn != null)
+        {
+            persuadeBtn.onClick.RemoveAllListeners();
+            persuadeBtn.onClick.AddListener(() =>
+            {
+                FillQuickPrompt("Saygıdeğer Muhafız, rün sınavını geçtim ve Kutsal Anahtar'ı getirdim. Tapınağın emanetini korumaya geldim, lütfen kapıyı aç.");
+            });
+        }
+
+        if (provokeBtn != null)
+        {
+            provokeBtn.onClick.RemoveAllListeners();
+            provokeBtn.onClick.AddListener(() =>
+            {
+                FillQuickPrompt("Çekil yolumdan muhafız! Bu tapınaktaki tüm hazineleri zorla alacağım!");
+            });
+        }
+    }
+
+    private static Button CreateQuickPromptButton(
+        Transform parent,
+        string name,
+        Vector2 anchoredPos,
+        Vector2 size,
+        string label,
+        Color bgColor,
+        Color borderColor,
+        TMP_FontAsset sharedFont)
+    {
+        GameObject btnObj = new GameObject(name);
+        btnObj.transform.SetParent(parent, false);
+        RectTransform rt = btnObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 0.5f);
+        rt.anchorMax = new Vector2(0f, 0.5f);
+        rt.pivot = new Vector2(0f, 0.5f);
+        rt.anchoredPosition = anchoredPos;
+        rt.sizeDelta = size;
+
+        Image bg = btnObj.AddComponent<Image>();
+        bg.color = bgColor;
+
+        Outline outline = btnObj.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = bg;
+
+        GameObject txtObj = new GameObject("Text");
+        txtObj.transform.SetParent(btnObj.transform, false);
+        RectTransform txtRt = txtObj.AddComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = new Vector2(6f, 2f);
+        txtRt.offsetMax = new Vector2(-6f, -2f);
+
+        TextMeshProUGUI tmp = txtObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            tmp.font = sharedFont;
+        tmp.text = label;
+        tmp.fontSize = 13.5f;
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = new Color(0.95f, 0.94f, 0.90f, 1f);
+
+        return btn;
+    }
+
+    private void FillQuickPrompt(string promptText)
+    {
+        if (isWaitingForLLM || playerInputField == null)
+            return;
+
+        playerInputField.text = promptText;
+        playerInputField.Select();
+        playerInputField.ActivateInputField();
     }
 
 
@@ -1261,7 +1606,7 @@ public class DialogueManager : MonoBehaviour
     {
         Canvas targetCanvas = null;
         if (dialoguePanel != null)
-            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
         if (targetCanvas == null)
         {
             GameObject canvasObj = GameObject.Find("Canvas");
@@ -1297,6 +1642,7 @@ public class DialogueManager : MonoBehaviour
                     keyHudIcon.sprite = keyIconSprite;
                 if (companionIconSprite != null)
                     companionHudIcon.sprite = companionIconSprite;
+                EnsureObjectiveBannerUI(statusHudPanel.transform, FindSharedFont());
                 return;
             }
 
@@ -1339,6 +1685,8 @@ public class DialogueManager : MonoBehaviour
             sharedFont,
             out companionHudIcon,
             out companionHudStateText);
+
+        EnsureObjectiveBannerUI(statusHudPanel.transform, sharedFont);
 
 #if UNITY_EDITOR
         if (!Application.isPlaying)
@@ -1457,10 +1805,11 @@ public class DialogueManager : MonoBehaviour
     private void RefreshStatusHud()
     {
         bool hasKey = GameManager.Instance != null && GameManager.Instance.HasKey;
+        bool hasCompanion = GameManager.Instance != null && GameManager.Instance.HasCompanion;
 
         if (cachedCompanionAgent == null)
         {
-            cachedCompanionAgent = FindFirstObjectByType<CompanionAgent>();
+            cachedCompanionAgent = FindFirstObjectByType<CompanionAgent>(FindObjectsInactive.Include);
         }
 
         string companionStateName = string.Empty;
@@ -1485,6 +1834,24 @@ public class DialogueManager : MonoBehaviour
             if (Mathf.Abs(cPos.z) > 0.01f)
             {
                 cachedCompanionAgent.transform.position = new Vector3(cPos.x, cPos.y, 0f);
+            }
+
+            if (Application.isPlaying)
+            {
+                if (companionBaseLocalScale == Vector3.zero)
+                {
+                    companionBaseLocalScale = cachedCompanionAgent.transform.localScale;
+                    if (companionBaseLocalScale.sqrMagnitude < 0.0001f)
+                        companionBaseLocalScale = Vector3.one;
+                }
+
+                float flapSpeed = (cachedCompanionAgent.ajanMotoru != null && cachedCompanionAgent.ajanMotoru.velocity.sqrMagnitude > 0.05f)
+                    ? 13.5f
+                    : 7.5f;
+                float flap = Mathf.Sin(Time.time * flapSpeed);
+                float sx = companionBaseLocalScale.x * (1f + flap * 0.065f);
+                float sy = companionBaseLocalScale.y * (1f - flap * 0.045f);
+                cachedCompanionAgent.transform.localScale = new Vector3(sx, sy, companionBaseLocalScale.z);
             }
 
             if (companionStateField == null)
@@ -1518,11 +1885,21 @@ public class DialogueManager : MonoBehaviour
                     else
                     {
                         cachedCompanionAgent.ajanMotoru.stoppingDistance = 1.4f;
-                        if (!hasKey && GameManager.Instance != null)
+                        TreasureChest chest = cachedCompanionAgent.sandikHedefi.GetComponent<TreasureChest>();
+                        if (chest == null)
+                            chest = cachedCompanionAgent.sandikHedefi.GetComponentInParent<TreasureChest>();
+                        if (chest == null)
+                            chest = cachedCompanionAgent.sandikHedefi.GetComponentInChildren<TreasureChest>();
+
+                        if (chest != null && !chest.IsOpen)
+                        {
+                            chest.Interact();
+                        }
+                        else if (!hasKey && GameManager.Instance != null)
                         {
                             GameManager.Instance.SetHasKey(true);
-                            hasKey = true;
                         }
+                        hasKey = GameManager.Instance != null && GameManager.Instance.HasKey;
                     }
                 }
                 else if (cachedCompanionAgent.ajanMotoru.stoppingDistance < 0.5f)
@@ -1544,6 +1921,67 @@ public class DialogueManager : MonoBehaviour
             }
         }
 
+        if (Application.isPlaying)
+        {
+            if (!stateTrackingInitialized)
+            {
+                lastTrackedHasCompanion = hasCompanion;
+                lastTrackedHasKey = hasKey;
+                lastTrackedCompanionState = companionStateName;
+                stateTrackingInitialized = true;
+            }
+            else
+            {
+                if (!lastTrackedHasCompanion && hasCompanion)
+                {
+                    lastTrackedHasCompanion = true;
+                    EnsureSpritesLoaded();
+                    PlayCompanionUnlockSfx();
+                    ShowEventPopup(
+                        companionIconSprite,
+                        string.Empty,
+                        "YOLDAŞ AÇILDI",
+                        "Doğu terasındaki Kutsal Anahtar sandığını ara",
+                        new Color(0.42f, 0.86f, 1f, 1f),
+                        3.0f,
+                        0.15f);
+                }
+
+                if (lastTrackedCompanionState != "NavigateToKeyState" && companionStateName == "NavigateToKeyState")
+                {
+                    EnsureSpritesLoaded();
+                    PlayCompanionSendSfx();
+                    ShowEventPopup(
+                        companionIconSprite,
+                        string.Empty,
+                        "YOLDAŞ ANAHTARI ALMAYA GÖNDERİLDİ",
+                        "Doğu terasındaki sandığa gidiyor...",
+                        new Color(1f, 0.82f, 0.34f, 1f),
+                        2.6f,
+                        0f);
+                }
+
+                if (!lastTrackedHasKey && hasKey)
+                {
+                    lastTrackedHasKey = true;
+                    EnsureSpritesLoaded();
+                    PlayKeyUnlockSfx();
+                    ShowEventPopup(
+                        keyIconSprite,
+                        string.Empty,
+                        "ANAHTAR AÇILDI",
+                        "Kutsal Anahtar envantere eklendi",
+                        new Color(0.45f, 0.95f, 0.58f, 1f),
+                        3.2f,
+                        0f);
+                }
+
+                lastTrackedHasCompanion = hasCompanion;
+                lastTrackedHasKey = hasKey;
+                lastTrackedCompanionState = companionStateName;
+            }
+        }
+
         if (keyHudIcon != null)
         {
             keyHudIcon.color = hasKey
@@ -1555,17 +1993,17 @@ public class DialogueManager : MonoBehaviour
         {
             if (hasKey)
             {
-                keyHudStateText.text = "Envanterde (Alındı)";
+                keyHudStateText.text = "Alındı";
                 keyHudStateText.color = new Color(0.45f, 0.94f, 0.56f, 1f);
             }
             else
             {
-                keyHudStateText.text = "Bulunmadı";
+                keyHudStateText.text = "Yok";
                 keyHudStateText.color = new Color(0.68f, 0.66f, 0.62f, 0.9f);
             }
         }
 
-        bool companionActive = (GameManager.Instance != null && GameManager.Instance.HasCompanion) ||
+        bool companionActive = hasCompanion ||
                                (cachedCompanionAgent != null && cachedCompanionAgent.gameObject.activeInHierarchy);
 
         if (companionHudIcon != null)
@@ -1575,29 +2013,231 @@ public class DialogueManager : MonoBehaviour
                 : new Color(0.38f, 0.38f, 0.42f, 0.55f);
         }
 
+        if (!hasDiscoveredKeyChest)
+        {
+            if (cachedEastChest == null)
+            {
+                TreasureChest[] allChests = FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+                foreach (var c in allChests)
+                {
+                    if (c != null && c.transform.position.x > 0f)
+                    {
+                        cachedEastChest = c;
+                        break;
+                    }
+                }
+            }
+
+            Transform playerTr = null;
+            if (GameManager.Instance != null)
+                playerTr = GameManager.Instance.PlayerTransform;
+            if (playerTr == null && Camera.main != null)
+            {
+                var camFollow = Camera.main.GetComponent<Cainos.PixelArtTopDown_Basic.CameraFollow>();
+                if (camFollow != null && camFollow.target != null)
+                    playerTr = camFollow.target;
+            }
+            if (playerTr == null)
+            {
+                var pc = Object.FindAnyObjectByType<Cainos.PixelArtTopDown_Basic.TopDownCharacterController>();
+                if (pc != null)
+                    playerTr = pc.transform;
+            }
+
+            if (playerTr != null)
+            {
+                float distToChest = cachedEastChest != null
+                    ? Vector2.Distance(playerTr.position, cachedEastChest.transform.position)
+                    : 999f;
+
+                if (distToChest < 4.2f || (playerTr.position.x > 3.0f && playerTr.position.y > -2.2f))
+                {
+                    SetKeyChestDiscovered(false);
+                }
+            }
+
+            if (cachedCompanionAgent != null)
+            {
+                if (cachedCompanionAgent.sandikHedefi != null)
+                {
+                    storedKeyChestTarget = cachedCompanionAgent.sandikHedefi;
+                    cachedCompanionAgent.sandikHedefi = null;
+                }
+                if (companionStateName == "NavigateToKeyState")
+                {
+                    cachedCompanionAgent.ChangeState(new FollowState());
+                }
+            }
+        }
+        else if (cachedCompanionAgent != null && cachedCompanionAgent.sandikHedefi == null)
+        {
+            if (storedKeyChestTarget != null)
+                cachedCompanionAgent.sandikHedefi = storedKeyChestTarget;
+            else if (cachedEastChest != null)
+                cachedCompanionAgent.sandikHedefi = cachedEastChest.transform;
+        }
+
         if (companionHudStateText != null)
         {
             if (!companionActive)
             {
-                companionHudStateText.text = "Sandıkta Bekliyor";
+                companionHudStateText.text = "Sandıkta";
                 companionHudStateText.color = new Color(0.68f, 0.66f, 0.62f, 0.9f);
+            }
+            else if (!hasDiscoveredKeyChest && !hasKey)
+            {
+                companionHudStateText.text = "Sandığı Bul";
+                companionHudStateText.color = new Color(1f, 0.78f, 0.32f, 1f);
             }
             else if (companionStateName == "NavigateToKeyState")
             {
-                companionHudStateText.text = "Anahtara Gidiyor...";
+                companionHudStateText.text = "Görevde...";
                 companionHudStateText.color = new Color(1f, 0.78f, 0.32f, 1f);
             }
             else if (companionStateName == "CollectAndReturnState")
             {
-                companionHudStateText.text = hasKey ? "Görev Tamamlandı" : "Anahtarla Dönüyor...";
+                companionHudStateText.text = hasKey ? "Dönüyor..." : "Görevde...";
                 companionHudStateText.color = new Color(0.45f, 0.94f, 0.56f, 1f);
             }
             else
             {
-                companionHudStateText.text = "Takip Ediyor [SPACE]";
-                companionHudStateText.color = new Color(0.85f, 0.92f, 1f, 1f);
+                companionHudStateText.text = hasKey ? "Yanında" : "Hazır [SPACE]";
+                companionHudStateText.color = hasKey
+                    ? new Color(0.45f, 0.94f, 0.56f, 1f)
+                    : new Color(0.85f, 0.92f, 1f, 1f);
             }
         }
+
+        if (objectiveHudText != null)
+        {
+            if (cachedRuneAltar == null)
+            {
+                cachedRuneAltar = FindFirstObjectByType<RuneAltar>();
+            }
+
+            bool altarActive = cachedRuneAltar != null && cachedRuneAltar.IsActivated;
+            int pillarCount = AncientTablet.ReadPillarsCount;
+            bool hasRead3Pillars = pillarCount >= 3;
+
+            if (!altarActive && !hasCompanion && !hasKey)
+            {
+                objectiveHudText.text =
+                    "<color=#F2CA58>HEDEF 1/5:</color> Kapıyı açmanın yolunu bul\n" +
+                    "<size=11><color=#D8CEAA>Kutuyu güneydeki Kadim Rün Sunağı'nın üzerine it</color></size>";
+            }
+            else if (!hasRead3Pillars && !hasCompanion && !hasKey)
+            {
+                objectiveHudText.text =
+                    $"<color=#62DAFF>HEDEF 2/5:</color> Tapınaktaki 3 sütun anıtını oku ({pillarCount}/3)\n" +
+                    "<size=11><color=#BFE8F2>Avluya gir ve [E] ile dikili sütunlardaki (Pillar) yazıtları incele</color></size>";
+            }
+            else if (!hasCompanion && !hasKey)
+            {
+                objectiveHudText.text =
+                    "<color=#62DAFF>HEDEF 3/5:</color> Haritadaki otonom yoldaşı bul\n" +
+                    "<size=11><color=#BFE8F2>Batı terasındaki sandığa git ve [E] ile kanatlı yoldaşı uyandır</color></size>";
+            }
+            else if (!hasKey)
+            {
+                if (!hasDiscoveredKeyChest)
+                {
+                    objectiveHudText.text =
+                        "<color=#FFD15C>HEDEF 4/5:</color> Anahtarın bulunduğu sandığın yerini bul\n" +
+                        "<size=11><color=#EEDAA4>Doğu terasındaki dikenli geçide ve sandığa yaklaş</color></size>";
+                }
+                else if (companionStateName == "NavigateToKeyState" || companionStateName == "CollectAndReturnState")
+                {
+                    objectiveHudText.text =
+                        "<color=#FFD15C>HEDEF 4/5:</color> Yoldaş Doğu sandığından anahtarı getiriyor...\n" +
+                        "<size=11><color=#EEDAA4>Dikenlerin üzerinden uçup anahtarla dönmesini bekle</color></size>";
+                }
+                else
+                {
+                    objectiveHudText.text =
+                        "<color=#FFD15C>HEDEF 4/5:</color> [SPACE] ile Yoldaş'ı anahtara gönder\n" +
+                        "<size=11><color=#EEDAA4>Doğu sandığı keşfedildi, [SPACE] tuşuna basarak yoldaşı yolla</color></size>";
+                }
+            }
+            else
+            {
+                int readCount = AncientTablet.ReadTabletsCount;
+                int gravestoneCount = Mathf.Max(0, readCount - AncientTablet.ReadPillarsCount);
+                string hintSuffix = gravestoneCount > 0
+                    ? $"({gravestoneCount} mezar taşı incelendi)"
+                    : "(Muhafız ciddiyet ve saygı bekler)";
+
+                objectiveHudText.text =
+                    "<color=#70F294>HEDEF 5/5:</color> Muhafız'la konuş ve tapınak emanetine giden kapıyı açtır\n" +
+                    $"<size=11><color=#CAD6E2>✦ İsteğe bağlı: Mezar taşlarını oku ve tecrübelen {hintSuffix}</color></size>";
+            }
+        }
+    }
+
+    private void EnsureObjectiveBannerUI(Transform hudParent, TMP_FontAsset sharedFont)
+    {
+        if (hudParent == null)
+            return;
+
+        Transform existingBanner = hudParent.Find("ObjectiveBanner");
+        if (existingBanner != null)
+        {
+            RectTransform existingRt = existingBanner.GetComponent<RectTransform>();
+            if (existingRt != null && existingRt.sizeDelta.y < 45f)
+            {
+                existingRt.sizeDelta = new Vector2(0f, 48f);
+            }
+            Transform txtTr = existingBanner.Find("Text");
+            if (txtTr != null)
+            {
+                objectiveHudText = txtTr.GetComponent<TextMeshProUGUI>();
+                if (objectiveHudText != null)
+                {
+                    objectiveHudText.lineSpacing = -12f;
+                    return;
+                }
+            }
+            DestroyImmediate(existingBanner.gameObject);
+        }
+
+        GameObject bannerObj = new GameObject("ObjectiveBanner");
+        bannerObj.transform.SetParent(hudParent, false);
+        RectTransform bannerRt = bannerObj.AddComponent<RectTransform>();
+        bannerRt.anchorMin = new Vector2(0f, 0f);
+        bannerRt.anchorMax = new Vector2(1f, 0f);
+        bannerRt.pivot = new Vector2(0f, 1f);
+        bannerRt.anchoredPosition = new Vector2(0f, -8f);
+        bannerRt.sizeDelta = new Vector2(0f, 48f);
+
+        Image bannerBg = bannerObj.AddComponent<Image>();
+        bannerBg.color = new Color(0.09f, 0.10f, 0.13f, 0.92f);
+
+        Outline bannerOutline = bannerObj.AddComponent<Outline>();
+        bannerOutline.effectColor = new Color(0.58f, 0.48f, 0.31f, 0.90f);
+        bannerOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        Shadow bannerShadow = bannerObj.AddComponent<Shadow>();
+        bannerShadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        bannerShadow.effectDistance = new Vector2(0f, -4f);
+
+        GameObject txtObj = new GameObject("Text");
+        txtObj.transform.SetParent(bannerObj.transform, false);
+        RectTransform txtRt = txtObj.AddComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = new Vector2(14f, 4f);
+        txtRt.offsetMax = new Vector2(-14f, -4f);
+
+        objectiveHudText = txtObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            objectiveHudText.font = sharedFont;
+        objectiveHudText.enableAutoSizing = true;
+        objectiveHudText.fontSizeMin = 10.5f;
+        objectiveHudText.fontSizeMax = 13.5f;
+        objectiveHudText.lineSpacing = -12f;
+        objectiveHudText.fontStyle = FontStyles.Bold;
+        objectiveHudText.alignment = TextAlignmentOptions.MidlineLeft;
+        objectiveHudText.color = new Color(0.92f, 0.91f, 0.88f, 1f);
+        objectiveHudText.text = "<color=#F2CA58>HEDEF 1/5:</color> Kapıyı açmanın yolunu bul\n<size=11><color=#D8CEAA>Kutuyu güneydeki Kadim Rün Sunağı'nın üzerine it</color></size>";
     }
 
     private static TMP_FontAsset FindSharedFont()
@@ -1610,6 +2250,302 @@ public class DialogueManager : MonoBehaviour
         return TMP_Settings.defaultFontAsset;
     }
 
+    public void EnsureEventPopupUI()
+    {
+        EnsureSpritesLoaded();
+
+        Canvas targetCanvas = null;
+        if (dialoguePanel != null)
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
+        if (targetCanvas == null)
+        {
+            GameObject canvasObj = GameObject.Find("Canvas");
+            if (canvasObj != null)
+                targetCanvas = canvasObj.GetComponent<Canvas>();
+        }
+        if (targetCanvas == null)
+            targetCanvas = FindFirstObjectByType<Canvas>();
+        if (targetCanvas == null)
+            return;
+
+        Transform existingPopup = targetCanvas.transform.Find("EventPopupPanel");
+        if (existingPopup != null)
+        {
+            Transform v2Marker = existingPopup.Find("Inner/V2Marker");
+            if (v2Marker != null)
+            {
+                eventPopupPanel = existingPopup.gameObject;
+                eventPopupCanvasGroup = eventPopupPanel.GetComponent<CanvasGroup>();
+                eventPopupBorderImage = eventPopupPanel.GetComponent<Image>();
+
+                Transform iconBorderTr = eventPopupPanel.transform.Find("Inner/IconFrame");
+                if (iconBorderTr != null)
+                    eventPopupIconBorderImage = iconBorderTr.GetComponent<Image>();
+
+                Transform iconTr = eventPopupPanel.transform.Find("Inner/IconFrame/Icon");
+                if (iconTr != null)
+                    eventPopupIconImage = iconTr.GetComponent<Image>();
+
+                Transform titleTr = eventPopupPanel.transform.Find("Inner/TitleText");
+                if (titleTr != null)
+                    eventPopupTitleText = titleTr.GetComponent<TextMeshProUGUI>();
+
+                Transform subTr = eventPopupPanel.transform.Find("Inner/SubtitleText");
+                if (subTr != null)
+                    eventPopupSubtitleText = subTr.GetComponent<TextMeshProUGUI>();
+
+                if (eventPopupCanvasGroup != null && eventPopupIconImage != null &&
+                    eventPopupTitleText != null && eventPopupSubtitleText != null)
+                {
+                    return;
+                }
+            }
+
+            if (Application.isPlaying)
+                Destroy(existingPopup.gameObject);
+            else
+                DestroyImmediate(existingPopup.gameObject);
+        }
+
+        TMP_FontAsset sharedFont = FindSharedFont();
+
+        eventPopupPanel = new GameObject("EventPopupPanel");
+        eventPopupPanel.layer = 5;
+        eventPopupPanel.transform.SetParent(targetCanvas.transform, false);
+
+        RectTransform popupRect = eventPopupPanel.AddComponent<RectTransform>();
+        popupRect.anchorMin = new Vector2(0.5f, 1f);
+        popupRect.anchorMax = new Vector2(0.5f, 1f);
+        popupRect.pivot = new Vector2(0.5f, 1f);
+        popupRect.anchoredPosition = new Vector2(0f, -26f);
+        popupRect.sizeDelta = new Vector2(510f, 88f);
+
+        eventPopupCanvasGroup = eventPopupPanel.AddComponent<CanvasGroup>();
+        eventPopupCanvasGroup.alpha = 0f;
+        eventPopupCanvasGroup.interactable = false;
+        eventPopupCanvasGroup.blocksRaycasts = false;
+
+        GameObject shadowObj = new GameObject("SoftShadow");
+        shadowObj.transform.SetParent(eventPopupPanel.transform, false);
+        RectTransform shadowRect = shadowObj.AddComponent<RectTransform>();
+        shadowRect.anchorMin = Vector2.zero;
+        shadowRect.anchorMax = Vector2.one;
+        shadowRect.offsetMin = new Vector2(-5f, -6f);
+        shadowRect.offsetMax = new Vector2(5f, 5f);
+        Image shadowImg = shadowObj.AddComponent<Image>();
+        shadowImg.color = new Color(0f, 0f, 0f, 0.48f);
+        shadowImg.raycastTarget = false;
+
+        eventPopupBorderImage = eventPopupPanel.AddComponent<Image>();
+        eventPopupBorderImage.color = new Color(0.86f, 0.72f, 0.36f, 0.92f);
+        eventPopupBorderImage.raycastTarget = false;
+
+        GameObject innerObj = new GameObject("Inner");
+        innerObj.transform.SetParent(eventPopupPanel.transform, false);
+        RectTransform innerRect = innerObj.AddComponent<RectTransform>();
+        innerRect.anchorMin = Vector2.zero;
+        innerRect.anchorMax = Vector2.one;
+        innerRect.offsetMin = new Vector2(2f, 2f);
+        innerRect.offsetMax = new Vector2(-2f, -2f);
+        Image innerBg = innerObj.AddComponent<Image>();
+        innerBg.color = new Color(0.09f, 0.11f, 0.15f, 0.95f);
+        innerBg.raycastTarget = false;
+
+        GameObject v2Obj = new GameObject("V2Marker");
+        v2Obj.transform.SetParent(innerObj.transform, false);
+
+        GameObject iconFrameObj = new GameObject("IconFrame");
+        iconFrameObj.transform.SetParent(innerObj.transform, false);
+        RectTransform iconFrameRect = iconFrameObj.AddComponent<RectTransform>();
+        iconFrameRect.anchorMin = new Vector2(0f, 0.5f);
+        iconFrameRect.anchorMax = new Vector2(0f, 0.5f);
+        iconFrameRect.pivot = new Vector2(0f, 0.5f);
+        iconFrameRect.anchoredPosition = new Vector2(12f, 0f);
+        iconFrameRect.sizeDelta = new Vector2(64f, 64f);
+
+        eventPopupIconBorderImage = iconFrameObj.AddComponent<Image>();
+        eventPopupIconBorderImage.color = new Color(0.14f, 0.16f, 0.21f, 1f);
+        eventPopupIconBorderImage.raycastTarget = false;
+
+        Outline iconOutline = iconFrameObj.AddComponent<Outline>();
+        iconOutline.effectColor = new Color(0.86f, 0.72f, 0.36f, 0.65f);
+        iconOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        GameObject iconObj = new GameObject("Icon");
+        iconObj.transform.SetParent(iconFrameObj.transform, false);
+        RectTransform iconRect = iconObj.AddComponent<RectTransform>();
+        iconRect.anchorMin = Vector2.zero;
+        iconRect.anchorMax = Vector2.one;
+        iconRect.offsetMin = new Vector2(7f, 7f);
+        iconRect.offsetMax = new Vector2(-7f, -7f);
+
+        eventPopupIconImage = iconObj.AddComponent<Image>();
+        eventPopupIconImage.preserveAspect = true;
+        eventPopupIconImage.raycastTarget = false;
+        if (companionIconSprite != null)
+            eventPopupIconImage.sprite = companionIconSprite;
+
+        GameObject titleObj = new GameObject("TitleText");
+        titleObj.transform.SetParent(innerObj.transform, false);
+        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0f, 0.5f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.offsetMin = new Vector2(90f, -2f);
+        titleRect.offsetMax = new Vector2(-16f, -10f);
+
+        eventPopupTitleText = titleObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            eventPopupTitleText.font = sharedFont;
+        eventPopupTitleText.enableAutoSizing = true;
+        eventPopupTitleText.fontSizeMin = 15f;
+        eventPopupTitleText.fontSizeMax = 21f;
+        eventPopupTitleText.fontStyle = FontStyles.Bold;
+        eventPopupTitleText.alignment = TextAlignmentOptions.BottomLeft;
+        eventPopupTitleText.color = Color.white;
+        eventPopupTitleText.raycastTarget = false;
+        eventPopupTitleText.text = "YOLDAŞ AÇILDI";
+
+        GameObject subObj = new GameObject("SubtitleText");
+        subObj.transform.SetParent(innerObj.transform, false);
+        RectTransform subRect = subObj.AddComponent<RectTransform>();
+        subRect.anchorMin = new Vector2(0f, 0f);
+        subRect.anchorMax = new Vector2(1f, 0.5f);
+        subRect.offsetMin = new Vector2(90f, 10f);
+        subRect.offsetMax = new Vector2(-16f, 0f);
+
+        eventPopupSubtitleText = subObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            eventPopupSubtitleText.font = sharedFont;
+        eventPopupSubtitleText.enableAutoSizing = true;
+        eventPopupSubtitleText.fontSizeMin = 12f;
+        eventPopupSubtitleText.fontSizeMax = 15f;
+        eventPopupSubtitleText.alignment = TextAlignmentOptions.TopLeft;
+        eventPopupSubtitleText.color = new Color(0.82f, 0.82f, 0.78f, 0.95f);
+        eventPopupSubtitleText.raycastTarget = false;
+        eventPopupSubtitleText.text = string.Empty;
+
+        eventPopupPanel.SetActive(false);
+    }
+
+    public void ShowEventPopup(
+        Sprite icon,
+        string badgeText,
+        string titleText,
+        string subtitleText,
+        Color accentColor,
+        float duration = 3.0f,
+        float delay = 0f)
+    {
+        EnsureEventPopupUI();
+        if (eventPopupPanel == null)
+            return;
+
+        if (eventPopupCoroutine != null)
+        {
+            StopCoroutine(eventPopupCoroutine);
+        }
+
+        eventPopupCoroutine = StartCoroutine(
+            AnimateEventPopupRoutine(icon, titleText, subtitleText, accentColor, duration, delay));
+    }
+
+    private IEnumerator AnimateEventPopupRoutine(
+        Sprite icon,
+        string titleText,
+        string subtitleText,
+        Color accentColor,
+        float duration,
+        float delay)
+    {
+        if (delay > 0.001f)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+        }
+
+        if (eventPopupIconImage != null)
+        {
+            eventPopupIconImage.sprite = icon;
+            eventPopupIconImage.enabled = icon != null;
+        }
+
+        if (eventPopupTitleText != null)
+        {
+            eventPopupTitleText.text = titleText;
+            eventPopupTitleText.color = Color.Lerp(accentColor, Color.white, 0.35f);
+        }
+
+        if (eventPopupSubtitleText != null)
+        {
+            eventPopupSubtitleText.text = subtitleText;
+        }
+
+        if (eventPopupBorderImage != null)
+        {
+            eventPopupBorderImage.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.92f);
+        }
+
+        eventPopupPanel.transform.SetAsLastSibling();
+        eventPopupPanel.SetActive(true);
+
+        RectTransform rt = eventPopupPanel.GetComponent<RectTransform>();
+        float enterDuration = 0.20f;
+        float elapsed = 0f;
+
+        while (elapsed < enterDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / enterDuration);
+            float easeOut = 1f - Mathf.Pow(1f - t, 3f);
+
+            if (eventPopupCanvasGroup != null)
+                eventPopupCanvasGroup.alpha = easeOut;
+
+            if (rt != null)
+            {
+                float scale = Mathf.Lerp(0.90f, 1.0f, easeOut);
+                rt.localScale = new Vector3(scale, scale, 1f);
+            }
+
+            yield return null;
+        }
+
+        if (eventPopupCanvasGroup != null)
+            eventPopupCanvasGroup.alpha = 1f;
+        if (rt != null)
+            rt.localScale = Vector3.one;
+
+        yield return new WaitForSecondsRealtime(duration);
+
+        float exitDuration = 0.28f;
+        elapsed = 0f;
+        while (elapsed < exitDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / exitDuration);
+
+            if (eventPopupCanvasGroup != null)
+                eventPopupCanvasGroup.alpha = 1f - t;
+
+            if (rt != null)
+            {
+                float scale = Mathf.Lerp(1.0f, 0.95f, t);
+                rt.localScale = new Vector3(scale, scale, 1f);
+            }
+
+            yield return null;
+        }
+
+        HideEventPopupImmediate();
+        eventPopupCoroutine = null;
+    }
+
+    private void HideEventPopupImmediate()
+    {
+        if (eventPopupCanvasGroup != null)
+            eventPopupCanvasGroup.alpha = 0f;
+        if (eventPopupPanel != null)
+            eventPopupPanel.SetActive(false);
+    }
 
     public void EnsureVictoryScreenUI()
     {
@@ -1618,7 +2554,7 @@ public class DialogueManager : MonoBehaviour
         Canvas targetCanvas = null;
         if (dialoguePanel != null)
         {
-            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>();
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
         }
         if (targetCanvas == null)
         {
@@ -1638,34 +2574,26 @@ public class DialogueManager : MonoBehaviour
         Transform existingVictory = targetCanvas.transform.Find("VictoryScreenPanel");
         if (existingVictory != null)
         {
-            victoryScreenPanel = existingVictory.gameObject;
-            Transform cardTr = existingVictory.Find("VictoryCard");
-            if (cardTr != null)
+            Transform v2Card = existingVictory.Find("EndScreenCard_V2");
+            if (v2Card != null)
             {
-                Transform restartBtnTr = cardTr.Find("ButtonsRow/RestartButton");
+                victoryScreenPanel = existingVictory.gameObject;
+                Transform restartBtnTr = v2Card.Find("RestartButton");
                 if (restartBtnTr != null)
                     victoryRestartButton = restartBtnTr.GetComponent<Button>();
 
-                Transform continueBtnTr = cardTr.Find("ButtonsRow/ContinueButton");
-                if (continueBtnTr != null)
-                    victoryContinueButton = continueBtnTr.GetComponent<Button>();
+                Transform iconTr = v2Card.Find("IconBadge/MainIcon");
+                if (iconTr != null)
+                    victoryGateIcon = iconTr.GetComponent<Image>();
 
-                Transform gateIconTr = cardTr.Find("IconsRow/GateIconBadge/GateIcon");
-                if (gateIconTr != null)
-                    victoryGateIcon = gateIconTr.GetComponent<Image>();
-
-                Transform keyIconTr = cardTr.Find("IconsRow/KeyIconBadge/KeyIcon");
-                if (keyIconTr != null)
-                    victoryKeyIcon = keyIconTr.GetComponent<Image>();
+                BindVictoryButtons();
+                return;
             }
 
-            BindVictoryButtons();
-            if (victoryGateIcon != null && woodenGateOpenedSprite != null)
-                victoryGateIcon.sprite = woodenGateOpenedSprite;
-            if (victoryKeyIcon != null && keyIconSprite != null)
-                victoryKeyIcon.sprite = keyIconSprite;
-
-            return;
+            if (Application.isPlaying)
+                Destroy(existingVictory.gameObject);
+            else
+                DestroyImmediate(existingVictory.gameObject);
         }
 
         TMP_FontAsset sharedFont = FindSharedFont();
@@ -1679,186 +2607,104 @@ public class DialogueManager : MonoBehaviour
         overlayRt.offsetMax = Vector2.zero;
 
         Image overlayImg = overlayObj.AddComponent<Image>();
-        overlayImg.color = new Color(0.03f, 0.04f, 0.06f, 0.86f);
+        overlayImg.color = new Color(0.03f, 0.04f, 0.06f, 0.82f);
         overlayImg.raycastTarget = true;
 
-        GameObject cardObj = new GameObject("VictoryCard");
+        GameObject cardObj = new GameObject("EndScreenCard_V2");
         cardObj.transform.SetParent(overlayObj.transform, false);
         RectTransform cardRt = cardObj.AddComponent<RectTransform>();
         cardRt.anchorMin = new Vector2(0.5f, 0.5f);
         cardRt.anchorMax = new Vector2(0.5f, 0.5f);
         cardRt.pivot = new Vector2(0.5f, 0.5f);
-        cardRt.sizeDelta = new Vector2(820f, 520f);
+        cardRt.sizeDelta = new Vector2(460f, 300f);
 
         Image cardBg = cardObj.AddComponent<Image>();
-        cardBg.color = new Color(0.08f, 0.10f, 0.13f, 0.98f);
+        cardBg.color = new Color(0.09f, 0.11f, 0.15f, 0.98f);
 
-        Outline cardGoldBorder = cardObj.AddComponent<Outline>();
-        cardGoldBorder.effectColor = new Color(0.92f, 0.76f, 0.35f, 0.95f);
-        cardGoldBorder.effectDistance = new Vector2(3f, -3f);
+        Outline cardBorder = cardObj.AddComponent<Outline>();
+        cardBorder.effectColor = new Color(0.88f, 0.74f, 0.36f, 0.90f);
+        cardBorder.effectDistance = new Vector2(2f, -2f);
 
         Shadow cardShadow = cardObj.AddComponent<Shadow>();
-        cardShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
-        cardShadow.effectDistance = new Vector2(0f, -12f);
+        cardShadow.effectColor = new Color(0f, 0f, 0f, 0.80f);
+        cardShadow.effectDistance = new Vector2(0f, -10f);
 
-        GameObject headerBar = new GameObject("HeaderBar");
-        headerBar.transform.SetParent(cardObj.transform, false);
-        RectTransform headerRt = headerBar.AddComponent<RectTransform>();
-        headerRt.anchorMin = new Vector2(0f, 1f);
-        headerRt.anchorMax = new Vector2(1f, 1f);
-        headerRt.pivot = new Vector2(0.5f, 1f);
-        headerRt.anchoredPosition = Vector2.zero;
-        headerRt.sizeDelta = new Vector2(0f, 76f);
+        GameObject iconBadge = new GameObject("IconBadge");
+        iconBadge.transform.SetParent(cardObj.transform, false);
+        RectTransform iconBadgeRt = iconBadge.AddComponent<RectTransform>();
+        iconBadgeRt.anchorMin = new Vector2(0.5f, 1f);
+        iconBadgeRt.anchorMax = new Vector2(0.5f, 1f);
+        iconBadgeRt.pivot = new Vector2(0.5f, 1f);
+        iconBadgeRt.anchoredPosition = new Vector2(0f, -28f);
+        iconBadgeRt.sizeDelta = new Vector2(84f, 84f);
 
-        Image headerImg = headerBar.AddComponent<Image>();
-        headerImg.color = new Color(0.14f, 0.19f, 0.15f, 1f);
+        Image iconBadgeBg = iconBadge.AddComponent<Image>();
+        iconBadgeBg.color = new Color(0.13f, 0.16f, 0.20f, 1f);
+        Outline iconBadgeOutline = iconBadge.AddComponent<Outline>();
+        iconBadgeOutline.effectColor = new Color(0.88f, 0.74f, 0.36f, 0.75f);
+        iconBadgeOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
-        Outline headerLine = headerBar.AddComponent<Outline>();
-        headerLine.effectColor = new Color(0.85f, 0.70f, 0.32f, 0.65f);
-        headerLine.effectDistance = new Vector2(0f, -2f);
+        GameObject mainIconObj = new GameObject("MainIcon");
+        mainIconObj.transform.SetParent(iconBadge.transform, false);
+        RectTransform mainIconRt = mainIconObj.AddComponent<RectTransform>();
+        mainIconRt.anchorMin = Vector2.zero;
+        mainIconRt.anchorMax = Vector2.one;
+        mainIconRt.offsetMin = new Vector2(10f, 10f);
+        mainIconRt.offsetMax = new Vector2(-10f, -10f);
 
-        GameObject badgeObj = new GameObject("VictoryBadgeText");
-        badgeObj.transform.SetParent(headerBar.transform, false);
-        RectTransform badgeRt = badgeObj.AddComponent<RectTransform>();
-        badgeRt.anchorMin = Vector2.zero;
-        badgeRt.anchorMax = Vector2.one;
-        badgeRt.offsetMin = new Vector2(20f, 8f);
-        badgeRt.offsetMax = new Vector2(-20f, -8f);
-
-        TextMeshProUGUI badgeTmp = badgeObj.AddComponent<TextMeshProUGUI>();
-        if (sharedFont != null)
-            badgeTmp.font = sharedFont;
-        badgeTmp.text = "★  GÖREV TAMAMLANDI — TAPINAĞIN KUTSAL KAPISI AÇILDI  ★";
-        badgeTmp.fontSize = 24f;
-        badgeTmp.fontStyle = FontStyles.Bold;
-        badgeTmp.alignment = TextAlignmentOptions.Center;
-        badgeTmp.color = new Color(0.98f, 0.86f, 0.44f, 1f);
-
-        GameObject iconsRow = new GameObject("IconsRow");
-        iconsRow.transform.SetParent(cardObj.transform, false);
-        RectTransform iconsRt = iconsRow.AddComponent<RectTransform>();
-        iconsRt.anchorMin = new Vector2(0.5f, 1f);
-        iconsRt.anchorMax = new Vector2(0.5f, 1f);
-        iconsRt.pivot = new Vector2(0.5f, 1f);
-        iconsRt.anchoredPosition = new Vector2(0f, -96f);
-        iconsRt.sizeDelta = new Vector2(340f, 120f);
-
-        GameObject gateBadge = new GameObject("GateIconBadge");
-        gateBadge.transform.SetParent(iconsRow.transform, false);
-        RectTransform gateBadgeRt = gateBadge.AddComponent<RectTransform>();
-        gateBadgeRt.anchorMin = new Vector2(0.5f, 0.5f);
-        gateBadgeRt.anchorMax = new Vector2(0.5f, 0.5f);
-        gateBadgeRt.pivot = new Vector2(0.5f, 0.5f);
-        gateBadgeRt.anchoredPosition = new Vector2(-72f, 0f);
-        gateBadgeRt.sizeDelta = new Vector2(112f, 112f);
-
-        Image gateBadgeBg = gateBadge.AddComponent<Image>();
-        gateBadgeBg.color = new Color(0.12f, 0.16f, 0.14f, 1f);
-        Outline gateBadgeOutline = gateBadge.AddComponent<Outline>();
-        gateBadgeOutline.effectColor = new Color(0.45f, 0.92f, 0.58f, 0.85f);
-        gateBadgeOutline.effectDistance = new Vector2(2f, -2f);
-
-        GameObject gateIconObj = new GameObject("GateIcon");
-        gateIconObj.transform.SetParent(gateBadge.transform, false);
-        RectTransform gateIconRt = gateIconObj.AddComponent<RectTransform>();
-        gateIconRt.anchorMin = Vector2.zero;
-        gateIconRt.anchorMax = Vector2.one;
-        gateIconRt.offsetMin = new Vector2(12f, 12f);
-        gateIconRt.offsetMax = new Vector2(-12f, -12f);
-
-        victoryGateIcon = gateIconObj.AddComponent<Image>();
+        victoryGateIcon = mainIconObj.AddComponent<Image>();
         victoryGateIcon.preserveAspect = true;
         if (woodenGateOpenedSprite != null)
             victoryGateIcon.sprite = woodenGateOpenedSprite;
 
-        GameObject keyBadge = new GameObject("KeyIconBadge");
-        keyBadge.transform.SetParent(iconsRow.transform, false);
-        RectTransform keyBadgeRt = keyBadge.AddComponent<RectTransform>();
-        keyBadgeRt.anchorMin = new Vector2(0.5f, 0.5f);
-        keyBadgeRt.anchorMax = new Vector2(0.5f, 0.5f);
-        keyBadgeRt.pivot = new Vector2(0.5f, 0.5f);
-        keyBadgeRt.anchoredPosition = new Vector2(72f, 0f);
-        keyBadgeRt.sizeDelta = new Vector2(112f, 112f);
-
-        Image keyBadgeBg = keyBadge.AddComponent<Image>();
-        keyBadgeBg.color = new Color(0.14f, 0.14f, 0.10f, 1f);
-        Outline keyBadgeOutline = keyBadge.AddComponent<Outline>();
-        keyBadgeOutline.effectColor = new Color(0.95f, 0.80f, 0.35f, 0.85f);
-        keyBadgeOutline.effectDistance = new Vector2(2f, -2f);
-
-        GameObject keyIconObj = new GameObject("KeyIcon");
-        keyIconObj.transform.SetParent(keyBadge.transform, false);
-        RectTransform keyIconRt = keyIconObj.AddComponent<RectTransform>();
-        keyIconRt.anchorMin = Vector2.zero;
-        keyIconRt.anchorMax = Vector2.one;
-        keyIconRt.offsetMin = new Vector2(16f, 16f);
-        keyIconRt.offsetMax = new Vector2(-16f, -16f);
-
-        victoryKeyIcon = keyIconObj.AddComponent<Image>();
-        victoryKeyIcon.preserveAspect = true;
-        if (keyIconSprite != null)
-            victoryKeyIcon.sprite = keyIconSprite;
-
-        GameObject titleObj = new GameObject("VictoryTitle");
+        GameObject titleObj = new GameObject("EndTitle");
         titleObj.transform.SetParent(cardObj.transform, false);
         RectTransform titleRt = titleObj.AddComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
-        titleRt.anchoredPosition = new Vector2(0f, -230f);
-        titleRt.sizeDelta = new Vector2(-60f, 48f);
+        titleRt.anchoredPosition = new Vector2(0f, -128f);
+        titleRt.sizeDelta = new Vector2(-40f, 42f);
 
         TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
         if (sharedFont != null)
             titleTmp.font = sharedFont;
-        titleTmp.text = "TEBRİKLER, OYUNU KAZANDINIZ!";
-        titleTmp.fontSize = 32f;
+        titleTmp.text = "OYUN TAMAMLANDI";
+        titleTmp.fontSize = 28f;
         titleTmp.fontStyle = FontStyles.Bold;
         titleTmp.alignment = TextAlignmentOptions.Center;
         titleTmp.color = new Color(0.48f, 0.96f, 0.62f, 1f);
 
-        GameObject descObj = new GameObject("VictoryDescription");
+        GameObject descObj = new GameObject("EndSubtitle");
         descObj.transform.SetParent(cardObj.transform, false);
         RectTransform descRt = descObj.AddComponent<RectTransform>();
         descRt.anchorMin = new Vector2(0f, 1f);
         descRt.anchorMax = new Vector2(1f, 1f);
         descRt.pivot = new Vector2(0.5f, 1f);
-        descRt.anchoredPosition = new Vector2(0f, -286f);
-        descRt.sizeDelta = new Vector2(-90f, 118f);
+        descRt.anchoredPosition = new Vector2(0f, -174f);
+        descRt.sizeDelta = new Vector2(-50f, 36f);
 
         TextMeshProUGUI descTmp = descObj.AddComponent<TextMeshProUGUI>();
         if (sharedFont != null)
             descTmp.font = sharedFont;
-        descTmp.text =
-            "Kadim rün sunağının mührünü çözdün, Otonom Yoldaş'ı dikenli engellerin ötesine göndererek " +
-            "<color=#FFE07D>Kutsal Anahtar'ı (HasKey = true)</color> ele geçirdin ve Tapınak Muhafızı'nı " +
-            "bilgeliğinle ikna ettin (<color=#72F594>OPEN_DOOR</color>).\n" +
-            "Tapınağın hedef kapısı ardına kadar açıldı!";
-        descTmp.fontSize = 19.5f;
+        descTmp.text = "Tapınağın kapısını açtın.";
+        descTmp.fontSize = 17f;
         descTmp.alignment = TextAlignmentOptions.Center;
-        descTmp.color = new Color(0.90f, 0.89f, 0.85f, 1f);
-
-        GameObject buttonsRow = new GameObject("ButtonsRow");
-        buttonsRow.transform.SetParent(cardObj.transform, false);
-        RectTransform buttonsRt = buttonsRow.AddComponent<RectTransform>();
-        buttonsRt.anchorMin = new Vector2(0.5f, 0f);
-        buttonsRt.anchorMax = new Vector2(0.5f, 0f);
-        buttonsRt.pivot = new Vector2(0.5f, 0f);
-        buttonsRt.anchoredPosition = new Vector2(0f, 28f);
-        buttonsRt.sizeDelta = new Vector2(680f, 58f);
+        descTmp.color = new Color(0.86f, 0.85f, 0.82f, 1f);
 
         GameObject restartBtnObj = new GameObject("RestartButton");
-        restartBtnObj.transform.SetParent(buttonsRow.transform, false);
+        restartBtnObj.transform.SetParent(cardObj.transform, false);
         RectTransform restartRt = restartBtnObj.AddComponent<RectTransform>();
-        restartRt.anchorMin = new Vector2(0f, 0f);
-        restartRt.anchorMax = new Vector2(0.48f, 1f);
-        restartRt.offsetMin = Vector2.zero;
-        restartRt.offsetMax = Vector2.zero;
+        restartRt.anchorMin = new Vector2(0.5f, 0f);
+        restartRt.anchorMax = new Vector2(0.5f, 0f);
+        restartRt.pivot = new Vector2(0.5f, 0f);
+        restartRt.anchoredPosition = new Vector2(0f, 26f);
+        restartRt.sizeDelta = new Vector2(220f, 48f);
 
         Image restartBg = restartBtnObj.AddComponent<Image>();
-        restartBg.color = new Color(0.18f, 0.56f, 0.30f, 1f);
+        restartBg.color = new Color(0.20f, 0.56f, 0.32f, 1f);
         Outline restartOutline = restartBtnObj.AddComponent<Outline>();
-        restartOutline.effectColor = new Color(0.55f, 0.95f, 0.65f, 0.9f);
+        restartOutline.effectColor = new Color(0.55f, 0.95f, 0.65f, 0.85f);
         restartOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
         victoryRestartButton = restartBtnObj.AddComponent<Button>();
@@ -1875,45 +2721,11 @@ public class DialogueManager : MonoBehaviour
         TextMeshProUGUI restartTmp = restartTxtObj.AddComponent<TextMeshProUGUI>();
         if (sharedFont != null)
             restartTmp.font = sharedFont;
-        restartTmp.text = "TEKRAR OYNA";
-        restartTmp.fontSize = 20f;
+        restartTmp.text = "BAŞA DÖN";
+        restartTmp.fontSize = 18.5f;
         restartTmp.fontStyle = FontStyles.Bold;
         restartTmp.alignment = TextAlignmentOptions.Center;
         restartTmp.color = Color.white;
-
-        GameObject continueBtnObj = new GameObject("ContinueButton");
-        continueBtnObj.transform.SetParent(buttonsRow.transform, false);
-        RectTransform continueRt = continueBtnObj.AddComponent<RectTransform>();
-        continueRt.anchorMin = new Vector2(0.52f, 0f);
-        continueRt.anchorMax = new Vector2(1f, 1f);
-        continueRt.offsetMin = Vector2.zero;
-        continueRt.offsetMax = Vector2.zero;
-
-        Image continueBg = continueBtnObj.AddComponent<Image>();
-        continueBg.color = new Color(0.22f, 0.24f, 0.28f, 1f);
-        Outline continueOutline = continueBtnObj.AddComponent<Outline>();
-        continueOutline.effectColor = new Color(0.85f, 0.72f, 0.38f, 0.8f);
-        continueOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        victoryContinueButton = continueBtnObj.AddComponent<Button>();
-        victoryContinueButton.targetGraphic = continueBg;
-
-        GameObject continueTxtObj = new GameObject("Text");
-        continueTxtObj.transform.SetParent(continueBtnObj.transform, false);
-        RectTransform continueTxtRt = continueTxtObj.AddComponent<RectTransform>();
-        continueTxtRt.anchorMin = Vector2.zero;
-        continueTxtRt.anchorMax = Vector2.one;
-        continueTxtRt.offsetMin = Vector2.zero;
-        continueTxtRt.offsetMax = Vector2.zero;
-
-        TextMeshProUGUI continueTmp = continueTxtObj.AddComponent<TextMeshProUGUI>();
-        if (sharedFont != null)
-            continueTmp.font = sharedFont;
-        continueTmp.text = "AÇIK KAPIDAN GEÇ (DEVAM ET)";
-        continueTmp.fontSize = 18.5f;
-        continueTmp.fontStyle = FontStyles.Bold;
-        continueTmp.alignment = TextAlignmentOptions.Center;
-        continueTmp.color = new Color(0.96f, 0.88f, 0.64f, 1f);
 
         victoryScreenPanel = overlayObj;
         victoryScreenPanel.SetActive(false);
@@ -1936,37 +2748,103 @@ public class DialogueManager : MonoBehaviour
             victoryRestartButton.onClick.RemoveListener(RestartGameFromVictory);
             victoryRestartButton.onClick.AddListener(RestartGameFromVictory);
         }
-
-        if (victoryContinueButton != null)
-        {
-            victoryContinueButton.onClick.RemoveListener(HideVictoryScreen);
-            victoryContinueButton.onClick.AddListener(HideVictoryScreen);
-        }
     }
 
     public void ShowVictoryScreen()
     {
+        ShowEndScreen(
+            true,
+            "OYUN TAMAMLANDI",
+            "Tapınağın kapısını açtın.",
+            woodenGateOpenedSprite != null ? woodenGateOpenedSprite : keyIconSprite,
+            3.2f);
+    }
+
+    public void ShowEndScreen(bool isVictory, string title, string subtitle, Sprite icon, float autoRestartSeconds = 2.8f)
+    {
         EnsureSpritesLoaded();
         EnsureVictoryScreenUI();
-
-        if (victoryGateIcon != null && woodenGateOpenedSprite != null)
-        {
-            victoryGateIcon.sprite = woodenGateOpenedSprite;
-        }
-        if (victoryKeyIcon != null && keyIconSprite != null)
-        {
-            victoryKeyIcon.sprite = keyIconSprite;
-        }
+        HideEventPopupImmediate();
 
         if (victoryScreenPanel != null)
         {
+            Transform cardTr = victoryScreenPanel.transform.Find("EndScreenCard_V2");
+            if (cardTr != null)
+            {
+                Color accent = isVictory
+                    ? new Color(0.45f, 0.94f, 0.58f, 1f)
+                    : new Color(0.96f, 0.36f, 0.32f, 1f);
+
+                Outline border = cardTr.GetComponent<Outline>();
+                if (border != null)
+                    border.effectColor = accent;
+
+                Transform titleTr = cardTr.Find("EndTitle");
+                if (titleTr != null)
+                {
+                    TextMeshProUGUI titleTmp = titleTr.GetComponent<TextMeshProUGUI>();
+                    if (titleTmp != null)
+                    {
+                        titleTmp.text = title;
+                        titleTmp.color = accent;
+                    }
+                }
+
+                Transform subTr = cardTr.Find("EndSubtitle");
+                if (subTr != null)
+                {
+                    TextMeshProUGUI subTmp = subTr.GetComponent<TextMeshProUGUI>();
+                    if (subTmp != null)
+                        subTmp.text = subtitle;
+                }
+
+                Transform btnTr = cardTr.Find("RestartButton");
+                if (btnTr != null)
+                {
+                    Image btnImg = btnTr.GetComponent<Image>();
+                    if (btnImg != null)
+                    {
+                        btnImg.color = isVictory
+                            ? new Color(0.18f, 0.54f, 0.30f, 1f)
+                            : new Color(0.62f, 0.20f, 0.20f, 1f);
+                    }
+                    Outline btnOutline = btnTr.GetComponent<Outline>();
+                    if (btnOutline != null)
+                        btnOutline.effectColor = accent;
+                }
+            }
+
+            if (victoryGateIcon != null && icon != null)
+            {
+                victoryGateIcon.sprite = icon;
+            }
+
             victoryScreenPanel.transform.SetAsLastSibling();
             victoryScreenPanel.SetActive(true);
         }
 
+        if (isVictory)
+            PlayVictorySfx();
+        else
+            PlayDefeatSfx();
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.SetGameState(GameState.Dialogue);
+        }
+
+        if (autoRestartSeconds > 0f && gameObject.activeInHierarchy)
+        {
+            StartCoroutine(AutoRestartRoutine(autoRestartSeconds));
+        }
+    }
+
+    private IEnumerator AutoRestartRoutine(float delaySeconds)
+    {
+        yield return new WaitForSecondsRealtime(delaySeconds);
+        if (IsVictoryScreenOpen)
+        {
+            RestartGameFromVictory();
         }
     }
 
@@ -1986,6 +2864,11 @@ public class DialogueManager : MonoBehaviour
     private void RestartGameFromVictory()
     {
         HideVictoryScreen();
+        HideEventPopupImmediate();
+        stateTrackingInitialized = false;
+        hasDiscoveredKeyChest = false;
+        storedKeyChestTarget = null;
+        AncientTablet.ResetReadCount();
 
         if (GameManager.Instance != null)
         {
@@ -1995,7 +2878,690 @@ public class DialogueManager : MonoBehaviour
         }
 
         UnityEngine.SceneManagement.SceneManager.LoadScene(
-            UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+            UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+    }
+
+    public void EnsureStartScreenUI()
+    {
+        EnsureSpritesLoaded();
+
+        Canvas targetCanvas = null;
+        if (dialoguePanel != null)
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
+        if (targetCanvas == null)
+        {
+            GameObject canvasObj = GameObject.Find("Canvas");
+            if (canvasObj != null)
+                targetCanvas = canvasObj.GetComponent<Canvas>();
+        }
+        if (targetCanvas == null)
+            targetCanvas = FindFirstObjectByType<Canvas>();
+        if (targetCanvas == null)
+            return;
+
+        Transform existingStart = targetCanvas.transform.Find("StartScreenPanel");
+        if (existingStart != null)
+        {
+            startScreenPanel = existingStart.gameObject;
+            Transform btnTr = existingStart.Find("StartCard/StartButton");
+            if (btnTr != null)
+            {
+                startGameButton = btnTr.GetComponent<Button>();
+                if (startGameButton != null)
+                {
+                    startGameButton.onClick.RemoveListener(CloseStartScreen);
+                    startGameButton.onClick.AddListener(CloseStartScreen);
+                }
+            }
+            return;
+        }
+
+        TMP_FontAsset sharedFont = FindSharedFont();
+
+        GameObject overlayObj = new GameObject("StartScreenPanel");
+        overlayObj.transform.SetParent(targetCanvas.transform, false);
+        RectTransform overlayRt = overlayObj.AddComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = overlayObj.AddComponent<Image>();
+        overlayImg.color = new Color(0.03f, 0.04f, 0.06f, 0.80f);
+        overlayImg.raycastTarget = true;
+
+        GameObject cardObj = new GameObject("StartCard");
+        cardObj.transform.SetParent(overlayObj.transform, false);
+        RectTransform cardRt = cardObj.AddComponent<RectTransform>();
+        cardRt.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRt.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRt.pivot = new Vector2(0.5f, 0.5f);
+        cardRt.sizeDelta = new Vector2(480f, 330f);
+
+        Image cardBg = cardObj.AddComponent<Image>();
+        cardBg.color = new Color(0.09f, 0.11f, 0.15f, 0.98f);
+
+        Outline cardBorder = cardObj.AddComponent<Outline>();
+        cardBorder.effectColor = new Color(0.88f, 0.74f, 0.36f, 0.92f);
+        cardBorder.effectDistance = new Vector2(2f, -2f);
+
+        Shadow cardShadow = cardObj.AddComponent<Shadow>();
+        cardShadow.effectColor = new Color(0f, 0f, 0f, 0.80f);
+        cardShadow.effectDistance = new Vector2(0f, -10f);
+
+        GameObject iconBadge = new GameObject("IconBadge");
+        iconBadge.transform.SetParent(cardObj.transform, false);
+        RectTransform iconBadgeRt = iconBadge.AddComponent<RectTransform>();
+        iconBadgeRt.anchorMin = new Vector2(0.5f, 1f);
+        iconBadgeRt.anchorMax = new Vector2(0.5f, 1f);
+        iconBadgeRt.pivot = new Vector2(0.5f, 1f);
+        iconBadgeRt.anchoredPosition = new Vector2(0f, -24f);
+        iconBadgeRt.sizeDelta = new Vector2(82f, 82f);
+
+        Image iconBadgeBg = iconBadge.AddComponent<Image>();
+        iconBadgeBg.color = new Color(0.13f, 0.16f, 0.20f, 1f);
+        Outline iconBadgeOutline = iconBadge.AddComponent<Outline>();
+        iconBadgeOutline.effectColor = new Color(0.88f, 0.74f, 0.36f, 0.75f);
+        iconBadgeOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        GameObject iconObj = new GameObject("Icon");
+        iconObj.transform.SetParent(iconBadge.transform, false);
+        RectTransform iconRt = iconObj.AddComponent<RectTransform>();
+        iconRt.anchorMin = Vector2.zero;
+        iconRt.anchorMax = Vector2.one;
+        iconRt.offsetMin = new Vector2(10f, 10f);
+        iconRt.offsetMax = new Vector2(-10f, -10f);
+
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.preserveAspect = true;
+        if (companionIconSprite != null)
+            iconImg.sprite = companionIconSprite;
+        else if (keyIconSprite != null)
+            iconImg.sprite = keyIconSprite;
+
+        GameObject titleObj = new GameObject("Title");
+        titleObj.transform.SetParent(cardObj.transform, false);
+        RectTransform titleRt = titleObj.AddComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.anchoredPosition = new Vector2(0f, -118f);
+        titleRt.sizeDelta = new Vector2(-40f, 40f);
+
+        TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            titleTmp.font = sharedFont;
+        titleTmp.text = "GAME OF TEMPLE";
+        titleTmp.fontSize = 29f;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.color = new Color(0.96f, 0.84f, 0.44f, 1f);
+
+        GameObject subObj = new GameObject("Subtitle");
+        subObj.transform.SetParent(cardObj.transform, false);
+        RectTransform subRt = subObj.AddComponent<RectTransform>();
+        subRt.anchorMin = new Vector2(0f, 1f);
+        subRt.anchorMax = new Vector2(1f, 1f);
+        subRt.pivot = new Vector2(0.5f, 1f);
+        subRt.anchoredPosition = new Vector2(0f, -162f);
+        subRt.sizeDelta = new Vector2(-50f, 34f);
+
+        TextMeshProUGUI subTmp = subObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            subTmp.font = sharedFont;
+        subTmp.text = "Tapınağın sırrını çöz, anahtarı al ve muhafızı ikna et.";
+        subTmp.fontSize = 15.5f;
+        subTmp.alignment = TextAlignmentOptions.Center;
+        subTmp.color = new Color(0.86f, 0.85f, 0.82f, 1f);
+
+        GameObject controlsObj = new GameObject("ControlsText");
+        controlsObj.transform.SetParent(cardObj.transform, false);
+        RectTransform controlsRt = controlsObj.AddComponent<RectTransform>();
+        controlsRt.anchorMin = new Vector2(0f, 1f);
+        controlsRt.anchorMax = new Vector2(1f, 1f);
+        controlsRt.pivot = new Vector2(0.5f, 1f);
+        controlsRt.anchoredPosition = new Vector2(0f, -204f);
+        controlsRt.sizeDelta = new Vector2(-40f, 28f);
+
+        TextMeshProUGUI controlsTmp = controlsObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            controlsTmp.font = sharedFont;
+        controlsTmp.text = "[WASD] Hareket   •   [E] Etkileşim   •   [SPACE] Yoldaş";
+        controlsTmp.fontSize = 13.5f;
+        controlsTmp.fontStyle = FontStyles.Bold;
+        controlsTmp.alignment = TextAlignmentOptions.Center;
+        controlsTmp.color = new Color(0.65f, 0.78f, 0.90f, 0.95f);
+
+        GameObject startBtnObj = new GameObject("StartButton");
+        startBtnObj.transform.SetParent(cardObj.transform, false);
+        RectTransform startBtnRt = startBtnObj.AddComponent<RectTransform>();
+        startBtnRt.anchorMin = new Vector2(0.5f, 0f);
+        startBtnRt.anchorMax = new Vector2(0.5f, 0f);
+        startBtnRt.pivot = new Vector2(0.5f, 0f);
+        startBtnRt.anchoredPosition = new Vector2(0f, 26f);
+        startBtnRt.sizeDelta = new Vector2(220f, 48f);
+
+        Image startBg = startBtnObj.AddComponent<Image>();
+        startBg.color = new Color(0.76f, 0.58f, 0.24f, 1f);
+        Outline startOutline = startBtnObj.AddComponent<Outline>();
+        startOutline.effectColor = new Color(0.95f, 0.82f, 0.48f, 0.9f);
+        startOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        startGameButton = startBtnObj.AddComponent<Button>();
+        startGameButton.targetGraphic = startBg;
+        startGameButton.onClick.RemoveListener(CloseStartScreen);
+        startGameButton.onClick.AddListener(CloseStartScreen);
+
+        GameObject startTxtObj = new GameObject("Text");
+        startTxtObj.transform.SetParent(startBtnObj.transform, false);
+        RectTransform startTxtRt = startTxtObj.AddComponent<RectTransform>();
+        startTxtRt.anchorMin = Vector2.zero;
+        startTxtRt.anchorMax = Vector2.one;
+        startTxtRt.offsetMin = Vector2.zero;
+        startTxtRt.offsetMax = Vector2.zero;
+
+        TextMeshProUGUI startTmp = startTxtObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            startTmp.font = sharedFont;
+        startTmp.text = "OYUNA BAŞLA";
+        startTmp.fontSize = 18.5f;
+        startTmp.fontStyle = FontStyles.Bold;
+        startTmp.alignment = TextAlignmentOptions.Center;
+        startTmp.color = new Color(0.10f, 0.08f, 0.06f, 1f);
+
+        startScreenPanel = overlayObj;
+        startScreenPanel.SetActive(false);
+    }
+
+    private void ShowInitialStartScreenIfNeeded()
+    {
+        if (!Application.isPlaying)
+        {
+            if (startScreenPanel != null)
+                startScreenPanel.SetActive(false);
+            return;
+        }
+
+        if (!hasShownInitialStartScreen)
+        {
+            hasShownInitialStartScreen = true;
+            EnsureStartScreenUI();
+            if (startScreenPanel != null)
+            {
+                startScreenPanel.transform.SetAsLastSibling();
+                startScreenPanel.SetActive(true);
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.SetGameState(GameState.Dialogue);
+                }
+            }
+        }
+        else if (startScreenPanel != null)
+        {
+            startScreenPanel.SetActive(false);
+        }
+    }
+
+    public void CloseStartScreen()
+    {
+        if (startScreenPanel != null)
+        {
+            startScreenPanel.SetActive(false);
+        }
+
+        PlayCompanionSendSfx();
+
+        if (!IsGuardChatOpen && !IsVictoryScreenOpen && GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameState(GameState.Playing);
+        }
+    }
+
+    public void EnsurePauseMenuUI()
+    {
+        EnsureSpritesLoaded();
+
+        Canvas targetCanvas = null;
+        if (dialoguePanel != null)
+            targetCanvas = dialoguePanel.GetComponentInParent<Canvas>(true);
+        if (targetCanvas == null)
+        {
+            GameObject canvasObj = GameObject.Find("Canvas");
+            if (canvasObj != null)
+                targetCanvas = canvasObj.GetComponent<Canvas>();
+        }
+        if (targetCanvas == null)
+            targetCanvas = FindFirstObjectByType<Canvas>();
+        if (targetCanvas == null)
+            return;
+
+        Transform existingPause = targetCanvas.transform.Find("PauseMenuPanel");
+        if (existingPause != null)
+        {
+            pauseMenuPanel = existingPause.gameObject;
+            Transform muteTxtTr = existingPause.Find("PauseCard/MuteButton/Text");
+            if (muteTxtTr != null)
+            {
+                pauseMuteButtonText = muteTxtTr.GetComponent<TextMeshProUGUI>();
+            }
+            BindPauseMenuButtons(existingPause);
+            UpdatePauseMuteLabel();
+            return;
+        }
+
+        TMP_FontAsset sharedFont = FindSharedFont();
+
+        GameObject overlayObj = new GameObject("PauseMenuPanel");
+        overlayObj.transform.SetParent(targetCanvas.transform, false);
+        RectTransform overlayRt = overlayObj.AddComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = overlayObj.AddComponent<Image>();
+        overlayImg.color = new Color(0.03f, 0.04f, 0.06f, 0.78f);
+        overlayImg.raycastTarget = true;
+
+        GameObject cardObj = new GameObject("PauseCard");
+        cardObj.transform.SetParent(overlayObj.transform, false);
+        RectTransform cardRt = cardObj.AddComponent<RectTransform>();
+        cardRt.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRt.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRt.pivot = new Vector2(0.5f, 0.5f);
+        cardRt.sizeDelta = new Vector2(410f, 340f);
+
+        Image cardBg = cardObj.AddComponent<Image>();
+        cardBg.color = new Color(0.09f, 0.11f, 0.15f, 0.98f);
+
+        Outline cardBorder = cardObj.AddComponent<Outline>();
+        cardBorder.effectColor = new Color(0.86f, 0.72f, 0.36f, 0.90f);
+        cardBorder.effectDistance = new Vector2(2f, -2f);
+
+        Shadow cardShadow = cardObj.AddComponent<Shadow>();
+        cardShadow.effectColor = new Color(0f, 0f, 0f, 0.80f);
+        cardShadow.effectDistance = new Vector2(0f, -10f);
+
+        GameObject titleObj = new GameObject("Title");
+        titleObj.transform.SetParent(cardObj.transform, false);
+        RectTransform titleRt = titleObj.AddComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.anchoredPosition = new Vector2(0f, -22f);
+        titleRt.sizeDelta = new Vector2(-40f, 34f);
+
+        TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            titleTmp.font = sharedFont;
+        titleTmp.text = "OYUN DURAKLATILDI";
+        titleTmp.fontSize = 23f;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.color = new Color(0.96f, 0.84f, 0.44f, 1f);
+
+        GameObject subObj = new GameObject("Subtitle");
+        subObj.transform.SetParent(cardObj.transform, false);
+        RectTransform subRt = subObj.AddComponent<RectTransform>();
+        subRt.anchorMin = new Vector2(0f, 1f);
+        subRt.anchorMax = new Vector2(1f, 1f);
+        subRt.pivot = new Vector2(0.5f, 1f);
+        subRt.anchoredPosition = new Vector2(0f, -56f);
+        subRt.sizeDelta = new Vector2(-40f, 22f);
+
+        TextMeshProUGUI subTmp = subObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            subTmp.font = sharedFont;
+        subTmp.text = "[ESC] veya [P] ile devam edebilirsin";
+        subTmp.fontSize = 13f;
+        subTmp.alignment = TextAlignmentOptions.Center;
+        subTmp.color = new Color(0.74f, 0.76f, 0.80f, 0.90f);
+
+        CreatePauseMenuButton(
+            cardObj.transform,
+            "ResumeButton",
+            new Vector2(0f, -104f),
+            "DEVAM ET",
+            new Color(0.76f, 0.58f, 0.24f, 1f),
+            new Color(0.95f, 0.82f, 0.48f, 0.9f),
+            new Color(0.10f, 0.08f, 0.06f, 1f),
+            sharedFont,
+            out _);
+
+        CreatePauseMenuButton(
+            cardObj.transform,
+            "MuteButton",
+            new Vector2(0f, -158f),
+            "SES: AÇIK",
+            new Color(0.16f, 0.20f, 0.27f, 1f),
+            new Color(0.46f, 0.62f, 0.82f, 0.85f),
+            new Color(0.92f, 0.94f, 0.98f, 1f),
+            sharedFont,
+            out pauseMuteButtonText);
+
+        CreatePauseMenuButton(
+            cardObj.transform,
+            "RestartButton",
+            new Vector2(0f, -212f),
+            "BAŞTAN BAŞLA",
+            new Color(0.18f, 0.22f, 0.26f, 1f),
+            new Color(0.58f, 0.64f, 0.72f, 0.85f),
+            new Color(0.92f, 0.92f, 0.92f, 1f),
+            sharedFont,
+            out _);
+
+        CreatePauseMenuButton(
+            cardObj.transform,
+            "QuitButton",
+            new Vector2(0f, -266f),
+            "OYUNDAN ÇIK",
+            new Color(0.46f, 0.16f, 0.16f, 1f),
+            new Color(0.88f, 0.42f, 0.42f, 0.85f),
+            new Color(0.98f, 0.92f, 0.92f, 1f),
+            sharedFont,
+            out _);
+
+        BindPauseMenuButtons(overlayObj.transform);
+        UpdatePauseMuteLabel();
+
+        pauseMenuPanel = overlayObj;
+        pauseMenuPanel.SetActive(false);
+    }
+
+    private static void CreatePauseMenuButton(
+        Transform parent,
+        string btnName,
+        Vector2 anchoredPos,
+        string labelText,
+        Color bgColor,
+        Color outlineColor,
+        Color textColor,
+        TMP_FontAsset sharedFont,
+        out TextMeshProUGUI labelTmp)
+    {
+        GameObject btnObj = new GameObject(btnName);
+        btnObj.transform.SetParent(parent, false);
+        RectTransform rt = btnObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 1f);
+        rt.anchorMax = new Vector2(0.5f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = anchoredPos;
+        rt.sizeDelta = new Vector2(250f, 42f);
+
+        Image bg = btnObj.AddComponent<Image>();
+        bg.color = bgColor;
+
+        Outline outline = btnObj.AddComponent<Outline>();
+        outline.effectColor = outlineColor;
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = bg;
+
+        GameObject txtObj = new GameObject("Text");
+        txtObj.transform.SetParent(btnObj.transform, false);
+        RectTransform txtRt = txtObj.AddComponent<RectTransform>();
+        txtRt.anchorMin = Vector2.zero;
+        txtRt.anchorMax = Vector2.one;
+        txtRt.offsetMin = Vector2.zero;
+        txtRt.offsetMax = Vector2.zero;
+
+        labelTmp = txtObj.AddComponent<TextMeshProUGUI>();
+        if (sharedFont != null)
+            labelTmp.font = sharedFont;
+        labelTmp.text = labelText;
+        labelTmp.fontSize = 16.5f;
+        labelTmp.fontStyle = FontStyles.Bold;
+        labelTmp.alignment = TextAlignmentOptions.Center;
+        labelTmp.color = textColor;
+    }
+
+    private void BindPauseMenuButtons(Transform pauseRoot)
+    {
+        if (pauseRoot == null)
+            return;
+
+        Transform resumeTr = pauseRoot.Find("PauseCard/ResumeButton");
+        if (resumeTr != null && resumeTr.TryGetComponent(out Button resumeBtn))
+        {
+            resumeBtn.onClick.RemoveAllListeners();
+            resumeBtn.onClick.AddListener(ClosePauseMenu);
+        }
+
+        Transform muteTr = pauseRoot.Find("PauseCard/MuteButton");
+        if (muteTr != null && muteTr.TryGetComponent(out Button muteBtn))
+        {
+            muteBtn.onClick.RemoveAllListeners();
+            muteBtn.onClick.AddListener(ToggleAudioMute);
+        }
+
+        Transform restartTr = pauseRoot.Find("PauseCard/RestartButton");
+        if (restartTr != null && restartTr.TryGetComponent(out Button restartBtn))
+        {
+            restartBtn.onClick.RemoveAllListeners();
+            restartBtn.onClick.AddListener(RestartFromPauseMenu);
+        }
+
+        Transform quitTr = pauseRoot.Find("PauseCard/QuitButton");
+        if (quitTr != null && quitTr.TryGetComponent(out Button quitBtn))
+        {
+            quitBtn.onClick.RemoveAllListeners();
+            quitBtn.onClick.AddListener(QuitGameFromPauseMenu);
+        }
+    }
+
+    public void OpenPauseMenu()
+    {
+        EnsurePauseMenuUI();
+        if (pauseMenuPanel == null)
+            return;
+
+        UpdatePauseMuteLabel();
+        pauseMenuPanel.transform.SetAsLastSibling();
+        pauseMenuPanel.SetActive(true);
+        Time.timeScale = 0f;
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameState(GameState.Dialogue);
+        }
+    }
+
+    public void ClosePauseMenu()
+    {
+        if (pauseMenuPanel != null)
+        {
+            pauseMenuPanel.SetActive(false);
+        }
+
+        Time.timeScale = 1f;
+
+        if (!IsGuardChatOpen && !IsVictoryScreenOpen && !IsStartScreenOpen && GameManager.Instance != null)
+        {
+            GameManager.Instance.SetGameState(GameState.Playing);
+        }
+    }
+
+    public void ToggleAudioMute()
+    {
+        isAudioMuted = !isAudioMuted;
+        AudioListener.volume = isAudioMuted ? 0f : 1f;
+        UpdatePauseMuteLabel();
+    }
+
+    private void UpdatePauseMuteLabel()
+    {
+        AudioListener.volume = isAudioMuted ? 0f : 1f;
+        if (pauseMuteButtonText != null)
+        {
+            pauseMuteButtonText.text = isAudioMuted ? "SES: KAPALI" : "SES: AÇIK";
+        }
+    }
+
+    private void RestartFromPauseMenu()
+    {
+        ClosePauseMenu();
+        RestartGameFromVictory();
+    }
+
+    private void QuitGameFromPauseMenu()
+    {
+        Time.timeScale = 1f;
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
+    private void EnsureAudioSources()
+    {
+        if (ambientAudioSource == null)
+        {
+            Transform ambTr = transform.Find("TempleAmbientAudio");
+            GameObject ambObj = ambTr != null ? ambTr.gameObject : new GameObject("TempleAmbientAudio");
+            ambObj.transform.SetParent(transform, false);
+            ambientAudioSource = ambObj.GetComponent<AudioSource>();
+            if (ambientAudioSource == null)
+            {
+                ambientAudioSource = ambObj.AddComponent<AudioSource>();
+            }
+            ambientAudioSource.loop = true;
+            ambientAudioSource.playOnAwake = false;
+            ambientAudioSource.spatialBlend = 0f;
+            ambientAudioSource.volume = 0.065f;
+            if (ambientAudioSource.clip == null)
+            {
+                ambientAudioSource.clip = CreateTempleAmbientClip();
+            }
+            if (!ambientAudioSource.isPlaying)
+            {
+                ambientAudioSource.Play();
+            }
+        }
+
+        if (sfxAudioSource == null)
+        {
+            Transform sfxTr = transform.Find("TempleSfxAudio");
+            GameObject sfxObj = sfxTr != null ? sfxTr.gameObject : new GameObject("TempleSfxAudio");
+            sfxObj.transform.SetParent(transform, false);
+            sfxAudioSource = sfxObj.GetComponent<AudioSource>();
+            if (sfxAudioSource == null)
+            {
+                sfxAudioSource = sfxObj.AddComponent<AudioSource>();
+            }
+            sfxAudioSource.loop = false;
+            sfxAudioSource.playOnAwake = false;
+            sfxAudioSource.spatialBlend = 0f;
+            sfxAudioSource.volume = 0.32f;
+        }
+
+        if (companionUnlockClip == null)
+            companionUnlockClip = CreateArpeggioClip("CompanionUnlock", new[] { 523.25f, 659.25f, 783.99f }, 0.11f);
+        if (companionSendClip == null)
+            companionSendClip = CreateArpeggioClip("CompanionSend", new[] { 587.33f, 880.0f }, 0.09f);
+        if (keyUnlockClip == null)
+            keyUnlockClip = CreateArpeggioClip("KeyUnlock", new[] { 587.33f, 739.99f, 880.0f, 1174.66f }, 0.12f);
+        if (runeActivateClip == null)
+            runeActivateClip = CreateArpeggioClip("RuneActivate", new[] { 293.66f, 440.0f, 587.33f }, 0.16f);
+        if (victoryClip == null)
+            victoryClip = CreateArpeggioClip("Victory", new[] { 523.25f, 659.25f, 783.99f, 1046.50f }, 0.16f);
+        if (defeatClip == null)
+            defeatClip = CreateArpeggioClip("Defeat", new[] { 311.13f, 261.63f, 196.00f }, 0.18f);
+    }
+
+    public void PlayCompanionUnlockSfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && companionUnlockClip != null)
+            sfxAudioSource.PlayOneShot(companionUnlockClip, 0.85f);
+    }
+
+    public void PlayCompanionSendSfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && companionSendClip != null)
+            sfxAudioSource.PlayOneShot(companionSendClip, 0.70f);
+    }
+
+    public void PlayKeyUnlockSfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && keyUnlockClip != null)
+            sfxAudioSource.PlayOneShot(keyUnlockClip, 0.95f);
+    }
+
+    public void PlayRuneActivateSfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && runeActivateClip != null)
+            sfxAudioSource.PlayOneShot(runeActivateClip, 0.85f);
+    }
+
+    public void PlayVictorySfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && victoryClip != null)
+            sfxAudioSource.PlayOneShot(victoryClip, 0.95f);
+    }
+
+    public void PlayDefeatSfx()
+    {
+        EnsureAudioSources();
+        if (sfxAudioSource != null && defeatClip != null)
+            sfxAudioSource.PlayOneShot(defeatClip, 0.90f);
+    }
+
+    private static AudioClip CreateArpeggioClip(string clipName, float[] frequencies, float noteDuration)
+    {
+        int sampleRate = 44100;
+        int samplesPerNote = Mathf.Max(1, Mathf.RoundToInt(sampleRate * noteDuration));
+        int tailSamples = Mathf.RoundToInt(sampleRate * 0.18f);
+        int totalSamples = (frequencies.Length * samplesPerNote) + tailSamples;
+        float[] data = new float[totalSamples];
+
+        for (int n = 0; n < frequencies.Length; n++)
+        {
+            float freq = frequencies[n];
+            int startSample = n * samplesPerNote;
+            int length = samplesPerNote + tailSamples;
+
+            for (int i = 0; i < length && (startSample + i) < totalSamples; i++)
+            {
+                float t = (float)i / sampleRate;
+                float env = Mathf.Exp(-t * 9.5f) * Mathf.Clamp01(i / (sampleRate * 0.008f));
+                float wave = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.65f +
+                             Mathf.Sin(2f * Mathf.PI * (freq * 2f) * t) * 0.20f;
+                data[startSample + i] += wave * env * 0.45f;
+            }
+        }
+
+        AudioClip clip = AudioClip.Create(clipName, totalSamples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
+    }
+
+    private static AudioClip CreateTempleAmbientClip()
+    {
+        int sampleRate = 22050;
+        float duration = 6.0f;
+        int totalSamples = Mathf.RoundToInt(sampleRate * duration);
+        float[] data = new float[totalSamples];
+
+        for (int i = 0; i < totalSamples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float loopEnv = 0.75f + 0.25f * Mathf.Sin(2f * Mathf.PI * t / duration);
+            float pad =
+                Mathf.Sin(2f * Mathf.PI * 110.0f * t) * 0.35f +
+                Mathf.Sin(2f * Mathf.PI * 164.81f * t) * 0.25f +
+                Mathf.Sin(2f * Mathf.PI * 220.0f * t) * 0.15f;
+            data[i] = pad * loopEnv * 0.35f;
+        }
+
+        AudioClip clip = AudioClip.Create("TempleAmbientLoop", totalSamples, 1, sampleRate, false);
+        clip.SetData(data, 0);
+        return clip;
     }
 
     [ContextMenu("Test Open Door & Victory (HasKey=true)")]

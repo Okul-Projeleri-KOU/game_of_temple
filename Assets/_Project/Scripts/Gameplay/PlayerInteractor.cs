@@ -9,6 +9,8 @@ public class PlayerInteractor : MonoBehaviour
     private Rigidbody2D rb;
     private IInteractable currentInteractable;
     private GameObject currentIndicator;
+    private Vector3 currentIndicatorBaseLocalPos;
+    private Vector3 currentIndicatorBaseLocalScale = Vector3.one;
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
@@ -42,16 +44,18 @@ public class PlayerInteractor : MonoBehaviour
 
     private void Update()
     {
-        if (DialogueManager.Instance != null && DialogueManager.Instance.IsGuardChatOpen)
+        if (DialogueManager.Instance != null &&
+            (DialogueManager.Instance.IsGuardChatOpen ||
+             DialogueManager.Instance.IsVictoryScreenOpen ||
+             DialogueManager.Instance.IsStartScreenOpen ||
+             DialogueManager.Instance.IsPauseMenuOpen))
         {
-            if (currentIndicator != null && currentIndicator.activeSelf)
-            {
-                currentIndicator.SetActive(false);
-            }
+            ResetAndHideCurrentIndicator();
             return;
         }
 
         DetectInteractable();
+        AnimateCurrentIndicator();
 
         if (IsMoving())
         {
@@ -108,11 +112,7 @@ public class PlayerInteractor : MonoBehaviour
         if (closestInteractable == currentInteractable)
             return;
 
-        if (currentIndicator != null)
-        {
-            currentIndicator.SetActive(false);
-            currentIndicator = null;
-        }
+        ResetAndHideCurrentIndicator();
 
         currentInteractable = closestInteractable;
 
@@ -121,9 +121,40 @@ public class PlayerInteractor : MonoBehaviour
             currentIndicator = FindIndicator(closestTransform);
             if (currentIndicator != null)
             {
+                currentIndicatorBaseLocalPos = currentIndicator.transform.localPosition;
+                currentIndicatorBaseLocalScale = currentIndicator.transform.localScale;
+                if (currentIndicatorBaseLocalScale.sqrMagnitude < 0.0001f)
+                {
+                    currentIndicatorBaseLocalScale = new Vector3(0.13f, 0.13f, 1f);
+                }
                 currentIndicator.SetActive(true);
             }
         }
+    }
+
+    private void AnimateCurrentIndicator()
+    {
+        if (currentIndicator == null || !currentIndicator.activeInHierarchy)
+            return;
+
+        float wave = Mathf.Sin(Time.unscaledTime * 5.2f);
+        float bobOffset = wave * 0.085f;
+        float scalePulse = 1f + wave * 0.06f;
+
+        currentIndicator.transform.localPosition = currentIndicatorBaseLocalPos + new Vector3(0f, bobOffset, 0f);
+        currentIndicator.transform.localScale = currentIndicatorBaseLocalScale * scalePulse;
+    }
+
+    private void ResetAndHideCurrentIndicator()
+    {
+        if (currentIndicator != null)
+        {
+            currentIndicator.transform.localPosition = currentIndicatorBaseLocalPos;
+            currentIndicator.transform.localScale = currentIndicatorBaseLocalScale;
+            currentIndicator.SetActive(false);
+            currentIndicator = null;
+        }
+        currentInteractable = null;
     }
 
     private GameObject FindIndicator(Transform parent)

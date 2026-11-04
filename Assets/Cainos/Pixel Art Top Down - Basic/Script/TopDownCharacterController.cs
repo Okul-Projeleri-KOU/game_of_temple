@@ -120,7 +120,7 @@ namespace Cainos.PixelArtTopDown_Basic
         private void Update()
         {
             if (DialogueManager.Instance != null &&
-                (DialogueManager.Instance.IsGuardChatOpen || DialogueManager.Instance.IsVictoryScreenOpen))
+                (DialogueManager.Instance.IsGuardChatOpen || DialogueManager.Instance.IsVictoryScreenOpen || DialogueManager.Instance.IsStartScreenOpen || DialogueManager.Instance.IsPauseMenuOpen))
             {
                 if (animator != null && animator.enabled)
                 {
