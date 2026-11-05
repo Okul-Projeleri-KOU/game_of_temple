@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -1525,7 +1525,7 @@ public class DialogueManager : MonoBehaviour
                 "PersuadeQuickBtn",
                 new Vector2(360f, 0f),
                 new Vector2(175f, 30f),
-                "✦ İkna Cümlesi",
+                "• İkna Cümlesi",
                 new Color(0.16f, 0.36f, 0.24f, 0.95f),
                 new Color(0.45f, 0.90f, 0.58f, 0.85f),
                 sharedFont);
@@ -1535,7 +1535,7 @@ public class DialogueManager : MonoBehaviour
                 "ProvokeQuickBtn",
                 new Vector2(545f, 0f),
                 new Vector2(175f, 30f),
-                "⚔ Kışkırtma Cümlesi",
+                "» Kışkırtma Cümlesi",
                 new Color(0.40f, 0.16f, 0.16f, 0.95f),
                 new Color(0.95f, 0.45f, 0.42f, 0.85f),
                 sharedFont);
@@ -2186,7 +2186,7 @@ public class DialogueManager : MonoBehaviour
 
                 objectiveHudText.text =
                     "<color=#70F294>HEDEF 5/5:</color> Muhafız'la konuş ve tapınak emanetine giden kapıyı açtır\n" +
-                    $"<size=11><color=#CAD6E2>✦ İsteğe bağlı: Mezar taşlarını oku ve tecrübelen {hintSuffix}</color></size>";
+                    $"<size=11><color=#CAD6E2>• İsteğe bağlı: Mezar taşlarını oku ve tecrübelen {hintSuffix}</color></size>";
             }
         }
     }

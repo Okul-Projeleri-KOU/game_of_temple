@@ -141,7 +141,7 @@ public class AncientTablet : MonoBehaviour, IInteractable
             }
         }
 
-        AncientTablet[] tablets = Object.FindObjectsByType<AncientTablet>(FindObjectsSortMode.None);
+        AncientTablet[] tablets = Object.FindObjectsByType<AncientTablet>();
         foreach (AncientTablet tablet in tablets)
         {
             if (tablet == null || tablet.gameObject == null)
@@ -225,7 +225,7 @@ public class AncientTablet : MonoBehaviour, IInteractable
             }
         }
 
-        TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
+        TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>();
         foreach (TreasureChest chest in chests)
         {
             if (chest != null && chest.gameObject != null)
@@ -634,7 +634,7 @@ public class AncientTablet : MonoBehaviour, IInteractable
 
     private static TMP_FontAsset FindSharedFont()
     {
-        TextMeshProUGUI existingTmp = FindFirstObjectByType<TextMeshProUGUI>();
+        TextMeshProUGUI existingTmp = FindAnyObjectByType<TextMeshProUGUI>();
         if (existingTmp != null && existingTmp.font != null)
         {
             return existingTmp.font;

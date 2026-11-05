@@ -20,7 +20,7 @@ public class PlayerInteractor : MonoBehaviour
         {
             if (!Application.isPlaying)
             {
-                PlayerInteractor pi = Object.FindFirstObjectByType<PlayerInteractor>();
+                PlayerInteractor pi = Object.FindAnyObjectByType<PlayerInteractor>();
                 if (pi != null && pi.interactionRadius > 1.0f)
                 {
                     pi.interactionRadius = 0.85f;
