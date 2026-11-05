@@ -9,7 +9,8 @@ public class CollectAndReturnState : BaseAgentState
         if (agent.oyuncuHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
         {
             agent.ajanMotoru.isStopped = false;
-            agent.ajanMotoru.SetDestination(agent.oyuncuHedefi.position);
+            Vector3 safePlayerTarget = agent.GetPlayableTargetPosition(agent.oyuncuHedefi.position);
+            agent.ajanMotoru.SetDestination(safePlayerTarget);
         }
     }
 
@@ -23,7 +24,8 @@ public class CollectAndReturnState : BaseAgentState
             agent.sensorKontrolcu.IsObstacleAhead();
         }
 
-        agent.ajanMotoru.SetDestination(agent.oyuncuHedefi.position);
+        Vector3 safeTarget = agent.GetPlayableTargetPosition(agent.oyuncuHedefi.position);
+        agent.ajanMotoru.SetDestination(safeTarget);
 
         if (!agent.ajanMotoru.pathPending)
         {

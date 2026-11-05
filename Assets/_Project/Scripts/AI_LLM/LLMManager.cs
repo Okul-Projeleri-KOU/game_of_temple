@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -8,9 +9,10 @@ using UnityEngine.Networking;
 [Serializable]
 public class LLMRequest
 {
-    public string model = "llama3.2";
+    public string model = "qwen3:4b";
     public string prompt;
     public bool stream = false;
+    public bool think = false;
     public string format = "json";
 }
 
@@ -22,23 +24,74 @@ public class LLMResponse
 
 public class LLMManager : MonoBehaviour, IDialogueService
 {
+    public const string DefaultModelName = "qwen3:4b";
+
     public const string FallbackErrorMessage =
         "Muhafız derin bir transa geçmiş gibi görünüyor ve şu an sesini duymuyor... [Yerel LLM Bağlantı Hatası - Lütfen Ollama servisini kontrol edin]";
 
     [Header("Ollama Yerel Sunucu Ayarları")]
     [SerializeField] private string apiUrl = "http://localhost:11434/api/generate";
-    [SerializeField] private string modelName = "llama3.2";
-    [SerializeField] private int requestTimeoutSeconds = 120;
+    [SerializeField] private string modelName = DefaultModelName;
+    [SerializeField] private int requestTimeoutSeconds = 180;
+
+    private readonly List<string> conversationHistory = new List<string>();
+    private int warningCount = 0;
+
+    private void Awake()
+    {
+        modelName = ResolveModelName(modelName);
+        if (requestTimeoutSeconds < 180)
+        {
+            requestTimeoutSeconds = 180;
+        }
+    }
+
+    public void ResetConversationState()
+    {
+        conversationHistory.Clear();
+        warningCount = 0;
+    }
+
+    private static string ResolveModelName(string configuredModel)
+    {
+        if (string.IsNullOrWhiteSpace(configuredModel))
+            return DefaultModelName;
+
+        string trimmed = configuredModel.Trim();
+        if (trimmed.StartsWith("llama3.2", StringComparison.OrdinalIgnoreCase))
+            return DefaultModelName;
+
+        return trimmed;
+    }
 
     public async Task<NPCResponseDTO> SendMessageAsync(string text)
     {
-        string fullPrompt = PromptConfig.GetGuardSystemPrompt() + "\n\nOyuncu: " + text;
+        string activeModel = ResolveModelName(modelName);
+        modelName = activeModel;
+
+        bool hasKey = GameManager.Instance != null && GameManager.Instance.HasKey;
+        string sanitizedPlayerText = SanitizePlayerMessage(text);
+
+        string historyBlock = conversationHistory.Count > 0
+            ? "\n\n[CONVERSATION_HISTORY]:\n" + string.Join("\n", conversationHistory)
+            : string.Empty;
+
+        string inputBlock =
+            "\n\n[SYSTEM_DATA]: HasKey = " + (hasKey ? "true" : "false") + ", WarningCount = " + warningCount +
+            "\n[PLAYER_MESSAGE]: " + sanitizedPlayerText +
+            "\n\nRespond ONLY with the guardian's JSON object containing \"action\", \"mood\", \"npc_reply\", and \"reason\":";
+
+        string fullPrompt =
+            PromptConfig.GetGuardSystemPrompt() +
+            historyBlock +
+            inputBlock;
 
         LLMRequest requestData = new LLMRequest
         {
-            model = string.IsNullOrWhiteSpace(modelName) ? "llama3.2" : modelName.Trim(),
+            model = activeModel,
             prompt = fullPrompt,
             stream = false,
+            think = false,
             format = "json"
         };
 
@@ -52,7 +105,7 @@ public class LLMManager : MonoBehaviour, IDialogueService
                 request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = requestTimeoutSeconds > 0 ? Mathf.Max(60, requestTimeoutSeconds) : 120;
+                request.timeout = requestTimeoutSeconds > 0 ? Mathf.Max(180, requestTimeoutSeconds) : 180;
 
                 UnityWebRequestAsyncOperation operation = request.SendWebRequest();
                 while (!operation.isDone)
@@ -64,12 +117,30 @@ public class LLMManager : MonoBehaviour, IDialogueService
                     request.result == UnityWebRequest.Result.ProtocolError ||
                     request.result == UnityWebRequest.Result.DataProcessingError)
                 {
-                    Debug.LogWarning("LLM Bağlantı Hatası: Ollama açık mı? " + request.error);
+                    Debug.LogWarning("LLM Bağlantı Hatası: Ollama açık mı? (" + activeModel + ") " + request.error);
                     return CreateFallbackResponse("Yerel LLM sunucusuna bağlanılamadı veya zaman aşımı oluştu: " + request.error);
                 }
 
                 string rawResponseText = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
-                return ParseOllamaResponse(rawResponseText);
+                NPCResponseDTO parsed = ParseOllamaResponse(rawResponseText);
+
+                if (parsed != null && parsed.dialogue != FallbackErrorMessage)
+                {
+                    if (parsed.action == "WAIT")
+                    {
+                        warningCount++;
+                    }
+
+                    if (conversationHistory.Count >= 4)
+                    {
+                        conversationHistory.RemoveAt(0);
+                    }
+                    conversationHistory.Add(
+                        "Player: " + sanitizedPlayerText +
+                        " -> Guardian (" + parsed.action + ", " + parsed.mood + "): " + parsed.dialogue);
+                }
+
+                return parsed;
             }
         }
         catch (Exception e)
@@ -77,6 +148,19 @@ public class LLMManager : MonoBehaviour, IDialogueService
             Debug.LogError("LLM İstek / Ayrıştırma Hatası: " + e.Message);
             return CreateFallbackResponse("İstisna (Exception) yakalandı: " + e.Message);
         }
+    }
+
+    private static string SanitizePlayerMessage(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
+
+        return input
+            .Replace("[SYSTEM_DATA]", "[PLAYER_CLAIM]")
+            .Replace("\"", "'")
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Trim();
     }
 
     public void AskLlama(string userMessage, Action<NPCResponseDTO> onResponseCallback)
@@ -127,11 +211,6 @@ public class LLMManager : MonoBehaviour, IDialogueService
 
             npcResponse.Normalize();
 
-            if (string.IsNullOrWhiteSpace(npcResponse.dialogue))
-            {
-                throw new Exception("Muhafız yanıt metni (npc_reply / dialogue) boş döndü.");
-            }
-
             if (npcResponse.action != "OPEN_DOOR" &&
                 npcResponse.action != "KILL_PLAYER" &&
                 npcResponse.action != "WAIT")
@@ -153,15 +232,22 @@ public class LLMManager : MonoBehaviour, IDialogueService
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
-        int firstBrace = text.IndexOf('{');
-        int lastBrace = text.LastIndexOf('}');
+        string cleaned = text;
+        int thinkEndIndex = cleaned.LastIndexOf("</think>", StringComparison.OrdinalIgnoreCase);
+        if (thinkEndIndex >= 0)
+        {
+            cleaned = cleaned.Substring(thinkEndIndex + "</think>".Length);
+        }
+
+        int firstBrace = cleaned.IndexOf('{');
+        int lastBrace = cleaned.LastIndexOf('}');
 
         if (firstBrace >= 0 && lastBrace > firstBrace)
         {
-            return text.Substring(firstBrace, lastBrace - firstBrace + 1);
+            return cleaned.Substring(firstBrace, lastBrace - firstBrace + 1);
         }
 
-        return text.Trim();
+        return cleaned.Trim();
     }
 
     private static NPCResponseDTO CreateFallbackResponse(string reasonText)
@@ -171,6 +257,7 @@ public class LLMManager : MonoBehaviour, IDialogueService
             npc_reply = FallbackErrorMessage,
             dialogue = FallbackErrorMessage,
             action = "WAIT",
+            mood = "NORMAL",
             reason = reasonText
         };
         fallback.Normalize();

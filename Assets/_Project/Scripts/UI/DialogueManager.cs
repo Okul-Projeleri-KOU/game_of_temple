@@ -253,7 +253,7 @@ public class DialogueManager : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Return) ||
                 Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space))
             {
-                RestartGameFromVictory();
+                ;
             }
             return;
         }
@@ -442,6 +442,18 @@ public class DialogueManager : MonoBehaviour
             ? response.action.Trim().ToUpperInvariant()
             : "WAIT";
 
+        bool isThinkingMood = !string.IsNullOrWhiteSpace(response.mood) &&
+                              response.mood.Trim().Equals("THINKING", System.StringComparison.OrdinalIgnoreCase);
+        SetWorldGuardThinkingSprite(isThinkingMood);
+        if (guardPortraitImage != null)
+        {
+            Sprite moodSprite = isThinkingMood
+                ? (guardThinkingSprite != null ? guardThinkingSprite : guardNormalSprite)
+                : (guardNormalSprite != null ? guardNormalSprite : guardThinkingSprite);
+            if (moodSprite != null)
+                guardPortraitImage.sprite = moodSprite;
+        }
+
         if (action == "KILL_PLAYER")
         {
             UpdateStatusBadge("SALDIRIYOR!", new Color(1f, 0.32f, 0.28f, 1f));
@@ -543,12 +555,18 @@ public class DialogueManager : MonoBehaviour
             "ÖLDÜNÜZ",
             "Tapınak Muhafızı seni yakaladı.",
             guardNormalSprite != null ? guardNormalSprite : keyIconSprite,
-            2.2f);
+            0f);
     }
 
     public void HandleOpenDoorAction()
     {
         EnsureSpritesLoaded();
+
+        if (GameManager.Instance == null || !GameManager.Instance.HasKey)
+        {
+            Debug.LogWarning("GÜVENLİK KONTROLÜ: HasKey == false olduğu için OPEN_DOOR işlemi engellendi.");
+            return;
+        }
 
         GameObject targetWoodenGate = FindTargetWoodenGate();
         if (targetWoodenGate != null)
@@ -2757,10 +2775,10 @@ public class DialogueManager : MonoBehaviour
             "OYUN TAMAMLANDI",
             "Tapınağın kapısını açtın.",
             woodenGateOpenedSprite != null ? woodenGateOpenedSprite : keyIconSprite,
-            3.2f);
+            0f);
     }
 
-    public void ShowEndScreen(bool isVictory, string title, string subtitle, Sprite icon, float autoRestartSeconds = 2.8f)
+    public void ShowEndScreen(bool isVictory, string title, string subtitle, Sprite icon, float autoRestartSeconds = 0f)
     {
         EnsureSpritesLoaded();
         EnsureVictoryScreenUI();
@@ -2869,6 +2887,8 @@ public class DialogueManager : MonoBehaviour
         hasDiscoveredKeyChest = false;
         storedKeyChestTarget = null;
         AncientTablet.ResetReadCount();
+        if (llmManager != null)
+            llmManager.ResetConversationState();
 
         if (GameManager.Instance != null)
         {
@@ -3653,6 +3673,18 @@ public class GuardDialogueTrigger : MonoBehaviour, IInteractable
                     DestroyImmediate(stray.gameObject);
             }
             return;
+        }
+
+        if (gameObject.name.Contains("muhafız"))
+        {
+            BoxCollider2D guardCol = GetComponent<BoxCollider2D>();
+            if (guardCol == null)
+                guardCol = gameObject.AddComponent<BoxCollider2D>();
+
+            guardCol.enabled = true;
+            guardCol.isTrigger = false;
+            guardCol.size = new Vector2(1.95f, 3.54f);
+            guardCol.offset = new Vector2(-0.027f, -0.60f);
         }
 
         Sprite eSprite = null;

@@ -9,15 +9,23 @@ public class NavigateToKeyState : BaseAgentState
         engelUyarisiVerildi = false;
         Debug.Log("Yoldaş Durumu: Anahtara gitme başlatıldı.");
 
+        agent.EnsureKeyChestTargetAssigned();
+
         if (agent.sandikHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
         {
             agent.ajanMotoru.isStopped = false;
-            agent.ajanMotoru.SetDestination(agent.sandikHedefi.position);
+            Vector3 safeChestTarget = agent.GetSafeChestApproachPosition(agent.sandikHedefi);
+            agent.ajanMotoru.SetDestination(safeChestTarget);
         }
     }
 
     public override void UpdateState(CompanionAgent agent)
     {
+        if (agent.sandikHedefi == null)
+        {
+            agent.EnsureKeyChestTargetAssigned();
+        }
+
         if (agent.ajanMotoru == null || agent.sandikHedefi == null || !agent.ajanMotoru.isOnNavMesh)
             return;
 
@@ -36,7 +44,8 @@ public class NavigateToKeyState : BaseAgentState
 
         if (!agent.ajanMotoru.hasPath && !agent.ajanMotoru.pathPending)
         {
-            agent.ajanMotoru.SetDestination(agent.sandikHedefi.position);
+            Vector3 safeChestTarget = agent.GetSafeChestApproachPosition(agent.sandikHedefi);
+            agent.ajanMotoru.SetDestination(safeChestTarget);
         }
 
         if (!agent.ajanMotoru.pathPending)

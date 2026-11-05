@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Tilemaps;
 
 public class CompanionAgent : MonoBehaviour, ICompanionCommand
 {
@@ -23,12 +24,15 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
     public Sprite[] sideFlyFrames;
 
     private float animTimer;
-    private int currentDirection = 0; // 0: Güney (Ön), 1: Kuzey (Arka), 2: Doğu (Sağ), 3: Batı (Sol)
+    private int currentDirection = 0;
     private bool requiresChestUnlock;
     private bool isWaitingInChest;
     private bool isSubscribedToGameManager;
     private bool hasCompletedKeyTask;
     private Transform companionChestTransform;
+
+    private readonly HashSet<Vector2Int> playableMapCells = new HashSet<Vector2Int>();
+    private bool isPlayableMapInitialized;
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
@@ -85,8 +89,14 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
             ajanMotoru.baseOffset = 0f;
         }
 
+        EnsurePlayableMapInitialized();
         EnsureOwlSpritesLoaded();
         FindSceneChestReferences();
+
+        if (DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.SetKeyChestDiscovered(false);
+        }
 
         requiresChestUnlock = companionChestTransform != null && GameManager.Instance != null;
 
@@ -116,6 +126,14 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
         }
     }
 
+    public void EnsureKeyChestTargetAssigned()
+    {
+        if (sandikHedefi == null)
+        {
+            FindSceneChestReferences();
+        }
+    }
+
     private void FindSceneChestReferences()
     {
         TreasureChest[] chests = Object.FindObjectsByType<TreasureChest>(FindObjectsSortMode.None);
@@ -141,7 +159,7 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
 
         if (companionChestTransform != null)
         {
-            Vector3 chestPos = new Vector3(companionChestTransform.position.x, companionChestTransform.position.y, 0f);
+            Vector3 chestPos = GetSafeChestApproachPosition(companionChestTransform);
             transform.position = chestPos;
             if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
             {
@@ -171,13 +189,17 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
     private void SpawnFromCompanionChest()
     {
         isWaitingInChest = false;
+        EnsurePlayableMapInitialized();
+        FindSceneChestReferences();
+
+        if (DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.NotifyClueDiscoveredEastChest();
+        }
 
         if (companionChestTransform != null)
         {
-            Vector3 spawnPos = new Vector3(
-                companionChestTransform.position.x,
-                companionChestTransform.position.y + 0.45f,
-                0f);
+            Vector3 spawnPos = GetSafeChestApproachPosition(companionChestTransform);
 
             transform.position = spawnPos;
             if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
@@ -224,6 +246,7 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
             currentState.UpdateState(this);
         }
 
+        EnforcePlayableMapBounds();
         UpdateOwlFlightAnimation();
 
         if (Input.GetKeyDown(KeyCode.Space))
@@ -250,9 +273,201 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
 
     private void LateUpdate()
     {
-        if (isWaitingInChest && baykusRenderer != null && baykusRenderer.enabled)
+        if (isWaitingInChest)
         {
-            baykusRenderer.enabled = false;
+            if (baykusRenderer != null && baykusRenderer.enabled)
+            {
+                baykusRenderer.enabled = false;
+            }
+            return;
+        }
+
+        if (ajanMotoru != null && ajanMotoru.stoppingDistance < 0.2f)
+        {
+            ajanMotoru.stoppingDistance = 0.35f;
+        }
+
+        EnforcePlayableMapBounds();
+    }
+
+    private void EnsurePlayableMapInitialized()
+    {
+        if (isPlayableMapInitialized && playableMapCells.Count > 0)
+            return;
+
+        if (Object.FindFirstObjectByType<Grid>() == null)
+            return;
+
+        Tilemap[] grassMaps =
+        {
+            FindSceneTilemap("Layer 1 - Grass"),
+            FindSceneTilemap("Layer 2 - Grass"),
+            FindSceneTilemap("Layer 3 - Grass")
+        };
+
+        Tilemap[] wallMaps =
+        {
+            FindSceneTilemap("Layer 1 - Wall"),
+            FindSceneTilemap("Layer 2 - Wall"),
+            FindSceneTilemap("Layer 3 - Wall")
+        };
+
+        if (grassMaps[0] == null && grassMaps[1] == null && grassMaps[2] == null)
+            return;
+
+        playableMapCells.Clear();
+
+        const int minX = -20;
+        const int maxX = 24;
+        const int minY = -16;
+        const int maxY = 23;
+
+        HashSet<Vector2Int> exteriorCells = new HashSet<Vector2Int>();
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+
+        Vector2Int startCorner = new Vector2Int(minX, minY);
+        exteriorCells.Add(startCorner);
+        queue.Enqueue(startCorner);
+
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dy = { 0, 0, 1, -1 };
+
+        while (queue.Count > 0)
+        {
+            Vector2Int cur = queue.Dequeue();
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = cur.x + dx[i];
+                int ny = cur.y + dy[i];
+                if (nx < minX || nx > maxX || ny < minY || ny > maxY)
+                    continue;
+
+                Vector2Int next = new Vector2Int(nx, ny);
+                if (exteriorCells.Contains(next))
+                    continue;
+
+                bool hasAnyTile = HasTileInAny(grassMaps, nx, ny) || HasTileInAny(wallMaps, nx, ny);
+                if (!hasAnyTile)
+                {
+                    exteriorCells.Add(next);
+                    queue.Enqueue(next);
+                }
+            }
+        }
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                Vector2Int cell = new Vector2Int(x, y);
+                if (!exteriorCells.Contains(cell))
+                {
+                    playableMapCells.Add(cell);
+                }
+            }
+        }
+
+        isPlayableMapInitialized = playableMapCells.Count > 0;
+    }
+
+    private static Tilemap FindSceneTilemap(string name)
+    {
+        GameObject go = GameObject.Find(name);
+        return go != null ? go.GetComponent<Tilemap>() : null;
+    }
+
+    private static bool HasTileInAny(Tilemap[] maps, int x, int y)
+    {
+        Vector3Int cell = new Vector3Int(x, y, 0);
+        for (int i = 0; i < maps.Length; i++)
+        {
+            if (maps[i] != null && maps[i].HasTile(cell))
+                return true;
+        }
+        return false;
+    }
+
+    public Vector3 GetPlayableTargetPosition(Vector3 targetWorldPos)
+    {
+        EnsurePlayableMapInitialized();
+        if (!isPlayableMapInitialized || playableMapCells.Count == 0)
+            return targetWorldPos;
+
+        Vector2Int cell = new Vector2Int(Mathf.FloorToInt(targetWorldPos.x), Mathf.FloorToInt(targetWorldPos.y));
+        if (playableMapCells.Contains(cell))
+            return new Vector3(targetWorldPos.x, targetWorldPos.y, 0f);
+
+        return ClampPositionToPlayableMap(targetWorldPos, 0.35f);
+    }
+
+    public Vector3 GetSafeChestApproachPosition(Transform chestTransform)
+    {
+        if (chestTransform == null)
+            return transform.position;
+
+        Vector3 pos = chestTransform.position;
+        Vector3 approachPos = new Vector3(pos.x - 0.35f, pos.y - 0.65f, 0f);
+        if (NavMesh.SamplePosition(approachPos, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
+        {
+            return new Vector3(hit.position.x, hit.position.y, 0f);
+        }
+
+        return GetPlayableTargetPosition(approachPos);
+    }
+
+    public Vector3 ClampPositionToPlayableMap(Vector3 worldPos, float edgePadding = 0.25f)
+    {
+        EnsurePlayableMapInitialized();
+        if (!isPlayableMapInitialized || playableMapCells.Count == 0)
+            return worldPos;
+
+        float px = worldPos.x;
+        float py = worldPos.y;
+        Vector2Int currentCell = new Vector2Int(Mathf.FloorToInt(px), Mathf.FloorToInt(py));
+
+        if (playableMapCells.Contains(currentCell))
+        {
+            return worldPos;
+        }
+
+        Vector2Int bestCell = currentCell;
+        float bestDistSq = float.MaxValue;
+        Vector2 pos2D = new Vector2(px, py);
+
+        foreach (Vector2Int cell in playableMapCells)
+        {
+            Vector2 cellCenter = new Vector2(cell.x + 0.5f, cell.y + 0.5f);
+            float dSq = (cellCenter - pos2D).sqrMagnitude;
+            if (dSq < bestDistSq)
+            {
+                bestDistSq = dSq;
+                bestCell = cell;
+            }
+        }
+
+        px = Mathf.Clamp(px, bestCell.x + edgePadding, bestCell.x + 1f - edgePadding);
+        py = Mathf.Clamp(py, bestCell.y + edgePadding, bestCell.y + 1f - edgePadding);
+
+        return new Vector3(px, py, worldPos.z);
+    }
+
+    private void EnforcePlayableMapBounds()
+    {
+        EnsurePlayableMapInitialized();
+        if (!isPlayableMapInitialized || playableMapCells.Count == 0)
+            return;
+
+        Vector3 currentPos = transform.position;
+        Vector2Int currentCell = new Vector2Int(Mathf.FloorToInt(currentPos.x), Mathf.FloorToInt(currentPos.y));
+
+        if (playableMapCells.Contains(currentCell))
+            return;
+
+        Vector3 clampedPos = ClampPositionToPlayableMap(currentPos, 0.35f);
+        transform.position = clampedPos;
+        if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
+        {
+            ajanMotoru.Warp(clampedPos);
         }
     }
 
@@ -299,10 +514,23 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
         if (isWaitingInChest || IsKeyTaskAlreadyCompletedOrActive())
             return;
 
+        if (DialogueManager.Instance != null)
+        {
+            DialogueManager.Instance.NotifyClueDiscoveredEastChest();
+        }
+
         if (target != null)
         {
             sandikHedefi = target;
         }
+
+        if (sandikHedefi == null)
+        {
+            FindSceneChestReferences();
+        }
+
+        if (sandikHedefi == null)
+            return;
 
         if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
         {
@@ -431,16 +659,16 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
     {
         switch (dir)
         {
-            case 1: // Kuzey (Yukarı)
+            case 1:
                 if (HasValidSprites(northFlyFrames))
                     return northFlyFrames;
                 break;
-            case 2: // Doğu (Sağ)
-            case 3: // Batı (Sol - flipX)
+            case 2:
+            case 3:
                 if (HasValidSprites(sideFlyFrames))
                     return sideFlyFrames;
                 break;
-            default: // Güney (Aşağı / Ön)
+            default:
                 if (HasValidSprites(southFlyFrames))
                     return southFlyFrames;
                 break;
