@@ -11,11 +11,10 @@ public class NavigateToKeyState : BaseAgentState
 
         agent.EnsureKeyChestTargetAssigned();
 
-        if (agent.sandikHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
+        if (agent.sandikHedefi != null && agent.IsNavigationReady)
         {
-            agent.ajanMotoru.isStopped = false;
             Vector3 safeChestTarget = agent.GetSafeChestApproachPosition(agent.sandikHedefi);
-            agent.ajanMotoru.SetDestination(safeChestTarget);
+            agent.MoveAgentTowardsTarget(safeChestTarget);
         }
     }
 
@@ -26,7 +25,7 @@ public class NavigateToKeyState : BaseAgentState
             agent.EnsureKeyChestTargetAssigned();
         }
 
-        if (agent.ajanMotoru == null || agent.sandikHedefi == null || !agent.ajanMotoru.isOnNavMesh)
+        if (agent.ajanMotoru == null || agent.sandikHedefi == null || !agent.IsNavigationReady)
             return;
 
         if (agent.sensorKontrolcu != null && agent.sensorKontrolcu.IsObstacleAhead())
@@ -42,11 +41,8 @@ public class NavigateToKeyState : BaseAgentState
             engelUyarisiVerildi = false;
         }
 
-        if (!agent.ajanMotoru.hasPath && !agent.ajanMotoru.pathPending)
-        {
-            Vector3 safeChestTarget = agent.GetSafeChestApproachPosition(agent.sandikHedefi);
-            agent.ajanMotoru.SetDestination(safeChestTarget);
-        }
+        Vector3 safeChestTarget = agent.GetSafeChestApproachPosition(agent.sandikHedefi);
+        agent.MoveAgentTowardsTarget(safeChestTarget);
 
         if (!agent.ajanMotoru.pathPending)
         {

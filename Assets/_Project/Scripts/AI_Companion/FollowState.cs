@@ -14,10 +14,9 @@ public class FollowState : BaseAgentState
             agent.sensorKontrolcu.IsObstacleAhead();
         }
 
-        if (agent.oyuncuHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
+        if (agent.oyuncuHedefi != null && agent.IsNavigationReady)
         {
-            Vector3 safePlayerTarget = agent.GetPlayableTargetPosition(agent.oyuncuHedefi.position);
-            agent.ajanMotoru.SetDestination(safePlayerTarget);
+            agent.MoveAgentTowardsTarget(agent.oyuncuHedefi.position);
         }
     }
 

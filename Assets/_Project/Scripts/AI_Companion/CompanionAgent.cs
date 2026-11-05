@@ -34,6 +34,25 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
     private readonly HashSet<Vector2Int> playableMapCells = new HashSet<Vector2Int>();
     private bool isPlayableMapInitialized;
 
+    private enum PassageTransitMode
+    {
+        None = 0,
+        TunnelNorth = 1,
+        TunnelSouth = 2,
+        AltarStairsNorth = 3,
+        AltarStairsSouth = 4
+    }
+
+    private static readonly Vector3 TunnelSouthPoint = new Vector3(7.0f, 5.55f, 0f);
+    private static readonly Vector3 TunnelNorthPoint = new Vector3(7.0f, 11.85f, 0f);
+    private static readonly Vector3 AltarStairsSouthPoint = new Vector3(4.0f, 14.85f, 0f);
+    private static readonly Vector3 AltarStairsNorthPoint = new Vector3(4.0f, 18.35f, 0f);
+
+    private PassageTransitMode activeTransit = PassageTransitMode.None;
+    private Vector2 manualFlightVelocity = Vector2.zero;
+
+    public bool IsNavigationReady => ajanMotoru != null && (ajanMotoru.isOnNavMesh || activeTransit != PassageTransitMode.None || !ajanMotoru.enabled);
+
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
     private static void InitEditorOwlSpritesSync()
@@ -453,6 +472,9 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
 
     private void EnforcePlayableMapBounds()
     {
+        if (activeTransit != PassageTransitMode.None)
+            return;
+
         EnsurePlayableMapInitialized();
         if (!isPlayableMapInitialized || playableMapCells.Count == 0)
             return;
@@ -465,10 +487,273 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
 
         Vector3 clampedPos = ClampPositionToPlayableMap(currentPos, 0.35f);
         transform.position = clampedPos;
-        if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
+        if (ajanMotoru != null && ajanMotoru.enabled && ajanMotoru.isOnNavMesh)
         {
             ajanMotoru.Warp(clampedPos);
         }
+    }
+
+    public int GetNavigationRegion(Vector3 worldPos)
+    {
+        if (worldPos.y >= 16.5f && worldPos.x >= 0.5f && worldPos.x <= 7.5f)
+        {
+            return 2;
+        }
+
+        bool inNorthCourtyard = worldPos.y >= 10.5f && worldPos.y < 16.5f && worldPos.x >= -3.8f && worldPos.x <= 8.6f;
+        bool inUpperTunnel = worldPos.y >= 8.5f && worldPos.y < 10.5f && worldPos.x >= 5.6f && worldPos.x <= 8.4f;
+
+        if (inNorthCourtyard || inUpperTunnel)
+        {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    public void MoveAgentTowardsTarget(Vector3 rawTargetWorldPos)
+    {
+        if (ajanMotoru == null)
+            return;
+
+        EnsurePlayableMapInitialized();
+        if (!isPlayableMapInitialized || playableMapCells.Count == 0)
+        {
+            if (ajanMotoru.enabled && ajanMotoru.isOnNavMesh)
+            {
+                ajanMotoru.SetDestination(rawTargetWorldPos);
+            }
+            return;
+        }
+
+        Vector3 safeTarget = GetPlayableTargetPosition(rawTargetWorldPos);
+        int targetRegion = GetNavigationRegion(safeTarget);
+
+        if (activeTransit != PassageTransitMode.None)
+        {
+            if (activeTransit == PassageTransitMode.TunnelNorth && targetRegion == 0)
+            {
+                activeTransit = PassageTransitMode.TunnelSouth;
+            }
+            else if (activeTransit == PassageTransitMode.TunnelSouth && targetRegion >= 1)
+            {
+                activeTransit = PassageTransitMode.TunnelNorth;
+            }
+            else if (activeTransit == PassageTransitMode.AltarStairsNorth && targetRegion <= 1)
+            {
+                activeTransit = PassageTransitMode.AltarStairsSouth;
+            }
+            else if (activeTransit == PassageTransitMode.AltarStairsSouth && targetRegion == 2)
+            {
+                activeTransit = PassageTransitMode.AltarStairsNorth;
+            }
+
+            StepActivePassageTransit();
+            return;
+        }
+
+        EnsureAgentOnNavMesh();
+
+        int currentRegion = GetNavigationRegion(transform.position);
+
+        if (currentRegion == 0 && targetRegion >= 1)
+        {
+            Vector3 pos = transform.position;
+            bool atTunnelSouthMouth = Vector2.Distance(pos, TunnelSouthPoint) <= 0.95f
+                || (pos.x >= 5.6f && pos.x <= 8.4f && pos.y >= 5.1f && pos.y <= 11.9f);
+
+            if (atTunnelSouthMouth)
+            {
+                BeginPassageTransit(PassageTransitMode.TunnelNorth);
+            }
+            else
+            {
+                SetDestinationOnNavMesh(TunnelSouthPoint);
+            }
+            return;
+        }
+
+        if (currentRegion == 1 && targetRegion == 0)
+        {
+            Vector3 pos = transform.position;
+            bool atTunnelNorthMouth = Vector2.Distance(pos, TunnelNorthPoint) <= 0.95f
+                || (pos.x >= 5.6f && pos.x <= 8.4f && pos.y >= 5.5f && pos.y <= 12.4f);
+
+            if (atTunnelNorthMouth)
+            {
+                BeginPassageTransit(PassageTransitMode.TunnelSouth);
+            }
+            else
+            {
+                SetDestinationOnNavMesh(TunnelNorthPoint);
+            }
+            return;
+        }
+
+        if (currentRegion == 1 && targetRegion == 2)
+        {
+            Vector3 pos = transform.position;
+            bool atStairsSouthMouth = Vector2.Distance(pos, AltarStairsSouthPoint) <= 0.95f
+                || (pos.x >= 2.8f && pos.x <= 5.2f && pos.y >= 14.3f && pos.y <= 18.5f);
+
+            if (atStairsSouthMouth)
+            {
+                BeginPassageTransit(PassageTransitMode.AltarStairsNorth);
+            }
+            else
+            {
+                SetDestinationOnNavMesh(AltarStairsSouthPoint);
+            }
+            return;
+        }
+
+        if (currentRegion == 2 && targetRegion <= 1)
+        {
+            Vector3 pos = transform.position;
+            bool atStairsNorthMouth = Vector2.Distance(pos, AltarStairsNorthPoint) <= 0.95f
+                || (pos.x >= 2.8f && pos.x <= 5.2f && pos.y >= 14.7f && pos.y <= 19.0f);
+
+            if (atStairsNorthMouth)
+            {
+                BeginPassageTransit(PassageTransitMode.AltarStairsSouth);
+            }
+            else
+            {
+                SetDestinationOnNavMesh(AltarStairsNorthPoint);
+            }
+            return;
+        }
+
+        manualFlightVelocity = Vector2.zero;
+        SetDestinationOnNavMesh(safeTarget);
+    }
+
+    private void BeginPassageTransit(PassageTransitMode mode)
+    {
+        activeTransit = mode;
+        if (ajanMotoru != null)
+        {
+            if (ajanMotoru.enabled && ajanMotoru.isOnNavMesh)
+            {
+                ajanMotoru.ResetPath();
+                ajanMotoru.isStopped = true;
+            }
+            ajanMotoru.enabled = false;
+        }
+
+        StepActivePassageTransit();
+    }
+
+    private void StepActivePassageTransit()
+    {
+        Vector3 exitPoint;
+        float corridorX;
+
+        switch (activeTransit)
+        {
+            case PassageTransitMode.TunnelNorth:
+                exitPoint = TunnelNorthPoint;
+                corridorX = 7.0f;
+                break;
+            case PassageTransitMode.TunnelSouth:
+                exitPoint = TunnelSouthPoint;
+                corridorX = 7.0f;
+                break;
+            case PassageTransitMode.AltarStairsNorth:
+                exitPoint = AltarStairsNorthPoint;
+                corridorX = 4.0f;
+                break;
+            case PassageTransitMode.AltarStairsSouth:
+                exitPoint = AltarStairsSouthPoint;
+                corridorX = 4.0f;
+                break;
+            default:
+                activeTransit = PassageTransitMode.None;
+                manualFlightVelocity = Vector2.zero;
+                EnsureAgentOnNavMesh();
+                return;
+        }
+
+        Vector3 currentPos = transform.position;
+        float baseSpeed = (ajanMotoru != null && ajanMotoru.speed > 0.1f) ? ajanMotoru.speed : 3.5f;
+        float transitSpeed = Mathf.Max(baseSpeed, 4.2f);
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+
+        Vector3 nextPos = Vector3.MoveTowards(currentPos, exitPoint, transitSpeed * dt);
+        nextPos.x = Mathf.MoveTowards(currentPos.x, corridorX, transitSpeed * 1.6f * dt);
+        nextPos.z = 0f;
+
+        Vector2 delta = new Vector2(nextPos.x - currentPos.x, nextPos.y - currentPos.y);
+        manualFlightVelocity = delta / dt;
+        transform.position = nextPos;
+
+        if (Vector2.Distance(nextPos, exitPoint) <= 0.08f)
+        {
+            CompletePassageTransit(exitPoint);
+        }
+    }
+
+    private void CompletePassageTransit(Vector3 exitPoint)
+    {
+        activeTransit = PassageTransitMode.None;
+        manualFlightVelocity = Vector2.zero;
+
+        Vector3 landedPos = SampleNavMeshOrFallback(exitPoint, 1.5f);
+        transform.position = landedPos;
+
+        if (ajanMotoru != null)
+        {
+            if (!ajanMotoru.enabled)
+            {
+                ajanMotoru.enabled = true;
+            }
+
+            if (ajanMotoru.isOnNavMesh)
+            {
+                ajanMotoru.Warp(landedPos);
+                ajanMotoru.isStopped = false;
+            }
+        }
+    }
+
+    private void EnsureAgentOnNavMesh()
+    {
+        if (ajanMotoru == null)
+            return;
+
+        if (!ajanMotoru.enabled)
+        {
+            Vector3 snapPos = SampleNavMeshOrFallback(transform.position, 2.0f);
+            transform.position = snapPos;
+            ajanMotoru.enabled = true;
+        }
+
+        if (ajanMotoru.isOnNavMesh && ajanMotoru.isStopped)
+        {
+            ajanMotoru.isStopped = false;
+        }
+    }
+
+    private void SetDestinationOnNavMesh(Vector3 targetWorldPos)
+    {
+        if (ajanMotoru == null || !ajanMotoru.enabled || !ajanMotoru.isOnNavMesh)
+            return;
+
+        Vector3 navTarget = SampleNavMeshOrFallback(targetWorldPos, 1.5f);
+        if ((ajanMotoru.hasPath || ajanMotoru.pathPending) && Vector2.Distance(ajanMotoru.destination, navTarget) <= 0.08f)
+            return;
+
+        ajanMotoru.SetDestination(navTarget);
+    }
+
+    private Vector3 SampleNavMeshOrFallback(Vector3 worldPos, float maxDistance)
+    {
+        Vector3 flatPos = new Vector3(worldPos.x, worldPos.y, 0f);
+        if (NavMesh.SamplePosition(flatPos, out NavMeshHit hit, maxDistance, NavMesh.AllAreas))
+        {
+            return new Vector3(hit.position.x, hit.position.y, 0f);
+        }
+        return GetPlayableTargetPosition(flatPos);
     }
 
     public void MarkKeyTaskCompleted()
@@ -532,7 +817,7 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
         if (sandikHedefi == null)
             return;
 
-        if (ajanMotoru != null && ajanMotoru.isOnNavMesh)
+        if (ajanMotoru != null && ajanMotoru.enabled && ajanMotoru.isOnNavMesh)
         {
             ajanMotoru.isStopped = false;
         }
@@ -608,13 +893,17 @@ public class CompanionAgent : MonoBehaviour, ICompanionCommand
             return;
 
         Vector2 moveVel = Vector2.zero;
-        if (ajanMotoru != null)
+        if (activeTransit != PassageTransitMode.None || manualFlightVelocity.sqrMagnitude > 0.005f)
+        {
+            moveVel = manualFlightVelocity;
+        }
+        else if (ajanMotoru != null && ajanMotoru.enabled)
         {
             bool is2D = !ajanMotoru.updateUpAxis || Object.FindFirstObjectByType<Grid>() != null;
             if (is2D)
             {
                 moveVel = new Vector2(ajanMotoru.velocity.x, ajanMotoru.velocity.y);
-                if (moveVel.sqrMagnitude < 0.005f)
+                if (moveVel.sqrMagnitude < 0.005f && ajanMotoru.isOnNavMesh)
                 {
                     moveVel = new Vector2(ajanMotoru.desiredVelocity.x, ajanMotoru.desiredVelocity.y);
                 }

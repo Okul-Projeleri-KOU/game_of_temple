@@ -6,17 +6,15 @@ public class CollectAndReturnState : BaseAgentState
     {
         Debug.Log("Yoldaş Durumu: Sandıktan anahtar alındı, oyuncuya geri dönülüyor.");
 
-        if (agent.oyuncuHedefi != null && agent.ajanMotoru != null && agent.ajanMotoru.isOnNavMesh)
+        if (agent.oyuncuHedefi != null && agent.IsNavigationReady)
         {
-            agent.ajanMotoru.isStopped = false;
-            Vector3 safePlayerTarget = agent.GetPlayableTargetPosition(agent.oyuncuHedefi.position);
-            agent.ajanMotoru.SetDestination(safePlayerTarget);
+            agent.MoveAgentTowardsTarget(agent.oyuncuHedefi.position);
         }
     }
 
     public override void UpdateState(CompanionAgent agent)
     {
-        if (agent.ajanMotoru == null || agent.oyuncuHedefi == null || !agent.ajanMotoru.isOnNavMesh)
+        if (agent.ajanMotoru == null || agent.oyuncuHedefi == null || !agent.IsNavigationReady)
             return;
 
         if (agent.sensorKontrolcu != null)
@@ -24,8 +22,7 @@ public class CollectAndReturnState : BaseAgentState
             agent.sensorKontrolcu.IsObstacleAhead();
         }
 
-        Vector3 safeTarget = agent.GetPlayableTargetPosition(agent.oyuncuHedefi.position);
-        agent.ajanMotoru.SetDestination(safeTarget);
+        agent.MoveAgentTowardsTarget(agent.oyuncuHedefi.position);
 
         if (!agent.ajanMotoru.pathPending)
         {
