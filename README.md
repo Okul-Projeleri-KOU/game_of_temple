@@ -37,6 +37,53 @@ Oyuncu, kadim bir tapınağın avlusunda uyanır. Tapınağın kutsal emanetine 
 - 🧯 **Hata Dayanıklılığı:** Ollama kapalıyken veya model bozuk JSON ürettiğinde oyun çökmez; oyuncuya oyun içi bir bildirim gösterilir.
 - 🗿 **Çevresel Etkileşimler:** Rün sunağı, kemerli taş kapı, sütun yazıtları, mezar taşları ve sandıklar.
 
+## 📸 Ekran Görüntüleri ve Oynanış
+
+Aşağıda projenin 5 temel aşamasını, çevresel bulmacalarını, yapay zekâ mekaniklerini ve arayüz dinamiklerini yansıtan oyun içi ekran görüntüleri yer almaktadır:
+
+### 1. Kadim Mühür ve Rün Sunağı Bulmacası (Hedef 1)
+> Tapınak kapısını açmak için ağırlık yerleştirilerek etkinleştirilen Rün Sunağı ve parlayan kadim mühürler.
+
+Oyuncu, tapınağın üst terasındaki **Kadim Rün Sunağı** üzerine fiziksel bir ağırlık (vazo/küp) iterek sunağı aktif hale getirir. Sunak tetiklendiğinde tabandaki rünler mavi ışıkla parlar ve alt kata bağlanan kemerli taş kapının (`StoneGate`) kilidi açılır.
+
+![Kadim Mühür ve Rün Sunağı](docs/images/01_kadim_muhur_run_sunagi.jpg)
+
+---
+
+### 2. Kadim Kitabeler ve Mezar Taşı İnceleme (Hedef 2)
+> Tapınağın geçmişine ve muhafızın beklentilerine dair kritik ipuçları sunan antik taş kitabe arayüzü.
+
+Tapınak avlusunda yer alan sütun anıtları (`Pillar`) ve mezar taşları, oyuncuya tapınağın arka plan hikâyesini ve Muhafız'ın felsefesini aktarır. `E` tuşu ile etkileşime girildiğinde antik kabartmalarla çevrili özel kitabe penceresi açılır.
+
+![Kadim Kitabe ve Mezar Taşları](docs/images/05_kadim_kitabe_mezar_tasi.jpg)
+
+---
+
+### 3. Otonom Yoldaşın Keşfi ve Uyanışı (Hedef 3)
+> Batı terasındaki sandıktan kurtarılan ve oyuncuya eşlik etmeye başlayan kanatlı otonom yoldaş (Baykuş).
+
+Batı terasındaki kilitli sandık açıldığında kanatlı **Otonom Yoldaş (Baykuş)** uyanarak serbest kalır. HUD bildirim paneli güncellenir ve yoldaş, oyuncunun hareketlerini NavMesh üzerinde dinamik olarak takip etmeye başlar.
+
+![Otonom Yoldaşın Uyanışı](docs/images/02_otonom_yoldas_uyanisi.jpg)
+
+---
+
+### 4. Dikenli Engeller ve Otonom Sandık Görevi (Hedef 4)
+> Oyuncunun yürüyerek aşamadığı sarmaşık engellerini `Space` komutuyla uçarak geçen ve Kutsal Anahtar'ı alan yoldaş.
+
+Doğu terasında yer alan Kutsal Anahtar sandığının çevresi, oyuncunun geçişini engelleyen kalın dikenli sarmaşıklarla çevrilidir. Oyuncu `Space` tuşuna bastığında otonom yoldaş uçuş moduna geçerek engellerin üzerinden uçar, sandığı açar ve anahtarı oyuncuya ulaştırır.
+
+![Dikenli Engeller ve Kutsal Anahtar Sandığı](docs/images/04_dikenli_engeller_ve_sandik.jpg)
+
+---
+
+### 5. Yerel LLM Tabanlı Tapınak Muhafızı Diyaloğu (Hedef 5)
+> Yerel `qwen3:4b` modeli ile çalışan, prompt korumalı ve doğal dil girdilerini değerlendiren Muhafız diyalog arayüzü.
+
+Oyunun final aşamasında oyuncu, kutsal emanet odasının kapısını tutan **Kadim Tapınak Muhafızı** ile serbest metin tabanlı doğal dille diyalog kurar. Yerel çalışan `qwen3:4b` modeli; oyuncunun saygısını, samimiyetini ve Kutsal Anahtar durumunu değerlendirerek kapıyı açma (`OPEN_DOOR`), sabırla dinleme (`WAIT`) ya da infaz (`KILL_PLAYER`) kararı verir.
+
+![Tapınak Muhafızı Diyalog Ekranı](docs/images/03_muhafiz_llm_diyalog.jpg)
+
 ## 🏗️ Teknik Mimari
 
 Proje, **SOLID prensipleri** doğrultusunda, sorumlulukların ayrıldığı ve bileşenler arasındaki bağımlılıkların azaltıldığı modüler bir mimariyle geliştirilmiştir.
